@@ -160,12 +160,19 @@ wait-for-it.sh -q -t 60 -h $DROPLET_IP -p 22
 sleep 1
 userMessage "getting hostkey"
 $SSH_COMMAND exit > /dev/null
-userMessage "updating system, installing tools ${TOOLS}"
+userMessage "setting up system"
+userSubMessage "fixing default locale"
 $SSH_COMMAND "echo LC_ALL=\"en_US.UTF-8\" >> /etc/default/locale"
-$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -q update && apt-get -yq upgrade && apt-get -yq install ${TOOLS}" > /dev/null
-userMessage "pulling repos ${REPOS}"
+userSubMessage "updating apt"
+$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -q update" > /dev/null
+userSubMessage "updating system"
+$userSubMessage "export DEBIAN_FRONTEND=noninteractive; apt-get -yq upgrade" > /dev/null
+userMessage "installing tools ${TOOLS}"
+$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install ${TOOLS}" > /dev/null
+userMessage "cloning repos ${REPOS}"
 for repo in ${REPOS}; do
-  $SSH_COMMAND "git pull https://github.com/${repo}.git"
+  userSubMessage "cloning ${repo}"
+  $SSH_COMMAND "git clone https://github.com/${repo}.git"
 done
 userMessage "installing docker using convenience script"
 $SSH_COMMAND "curl -fsSL https://get.docker.com | bash" > /dev/null
