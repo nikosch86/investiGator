@@ -8,8 +8,8 @@ DEFAULT_SLUG=2gb
 DEFAULT_NAME=investig
 DEFAULT_IMAGE=ubuntu-16-04-x64
 DEFAULT_PRIVATE_KEY=~/.ssh/id_rsa
-DEFAULT_TOOLS="nmap git"
-DEFAULT_REPOS="danielmiessler/SecLists"
+DEFAULT_TOOLS="nmap git wpscan exploitdb mimikatz hashcat hydra gobuster crunch"
+DEFAULT_REPOS="danielmiessler/SecLists magnumripper/JohnTheRipper"
 REGION=$DEFAULT_REGION
 SLUG=$DEFAULT_SLUG
 NAME=$DEFAULT_NAME
@@ -17,6 +17,7 @@ IMAGE=$DEFAULT_IMAGE
 PRIVATE_KEY=$DEFAULT_PRIVATE_KEY
 TOOLS=$DEFAULT_TOOLS
 REPOS=$DEFAULT_REPOS
+COMPOSE_VERSION="1.23.1"
 
 function printUsage() {
   echo ""
@@ -28,7 +29,7 @@ function printUsage() {
   echo "  -n | --name                 : specify droplet name [$DEFAULT_NAME]"
   echo "  -i | --image                : specify image slug [$DEFAULT_IMAGE]"
   echo "  -k | --private-key          : speficy private key location [$DEFAULT_PRIVATE_KEY]"
-  echo "  -t | --tools                : specify tools to install [$DEFAULT_SLUG]"
+  echo "  -t | --tools                : specify tools to install [$DEFAULT_TOOLS]"
   echo "     | --repos                : specify repos to pull [$DEFAULT_REPOS]"
   echo "  -h | --help                 : Print this menu"
 }
@@ -163,22 +164,28 @@ $SSH_COMMAND exit > /dev/null
 userMessage "setting up system"
 userSubMessage "fixing default locale"
 $SSH_COMMAND "echo LC_ALL=\"en_US.UTF-8\" >> /etc/default/locale"
+userSubMessage "add kali-rolling and docker repos"
+$SSH_COMMAND "curl -fsSL https://archive.kali.org/archive-key.asc | apt-key add -" > /dev/null
+$SSH_COMMAND "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -" > /dev/null
+$SSH_COMMAND "echo \"deb https://http.kali.org/kali kali-rolling main non-free contrib\" > /etc/apt/sources.list"
+$SSH_COMMAND "echo \"deb-src https://http.kali.org/kali kali-rolling main non-free contrib\" >> /etc/apt/sources.list"
+$SSH_COMMAND "echo \"deb https://download.docker.com/linux/ubuntu xenial stable\" >> /etc/apt/sources.list"
 userSubMessage "updating apt"
 $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -q update" > /dev/null
+userSubMessage "fix issue with console-setup-linux"
+$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -o Dpkg::Options::=\"--force-overwrite\" -yq install console-setup-linux" > /dev/null
 userSubMessage "updating system"
-$userSubMessage "export DEBIAN_FRONTEND=noninteractive; apt-get -yq upgrade" > /dev/null
+$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq upgrade" > /dev/null
 userMessage "installing tools ${TOOLS}"
-$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install ${TOOLS}" > /dev/null
+$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install docker-ce ${TOOLS}" > /dev/null
 userMessage "cloning repos ${REPOS}"
 for repo in ${REPOS}; do
   userSubMessage "cloning ${repo}"
   $SSH_COMMAND "git clone https://github.com/${repo}.git"
 done
-userMessage "installing docker using convenience script"
-$SSH_COMMAND "curl -fsSL https://get.docker.com | bash" > /dev/null
 userMessage "install compose"
-$SSH_COMMAND "curl -L "https://github.com/docker/compose/releases/download/1.23.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose"
-$SSH_COMMAND "chmod +x /usr/local/bin/docker-compose"
+$SSH_COMMAND "curl -LO \"https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)\""
+$SSH_COMMAND "mv docker-compose-$(uname -s)-$(uname -m) /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose"
 userMessage "putting compose file in place"
 $SSH_COMMAND "mkdir -p vpn"
 scp -i ${PRIVATE_KEY} ${VPN_COMPOSE} root@${DROPLET_IP}:/root/vpn/
