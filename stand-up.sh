@@ -8,8 +8,9 @@ DEFAULT_SLUG=2gb
 DEFAULT_NAME=investig
 DEFAULT_IMAGE=ubuntu-16-04-x64
 DEFAULT_PRIVATE_KEY=~/.ssh/id_rsa
-DEFAULT_TOOLS="nmap git wpscan exploitdb mimikatz hashcat hydra gobuster crunch"
+DEFAULT_TOOLS="nmap git wpscan exploitdb mimikatz hashcat hydra gobuster crunch lynx"
 DEFAULT_REPOS="danielmiessler/SecLists magnumripper/JohnTheRipper"
+DEFAULT_METASPLOIT="no"
 REGION=$DEFAULT_REGION
 SLUG=$DEFAULT_SLUG
 NAME=$DEFAULT_NAME
@@ -17,6 +18,7 @@ IMAGE=$DEFAULT_IMAGE
 PRIVATE_KEY=$DEFAULT_PRIVATE_KEY
 TOOLS=$DEFAULT_TOOLS
 REPOS=$DEFAULT_REPOS
+METASPLOIT=$DEFAULT_METASPLOIT
 COMPOSE_VERSION="1.23.1"
 
 function printUsage() {
@@ -30,6 +32,7 @@ function printUsage() {
   echo "  -i | --image                : specify image slug [$DEFAULT_IMAGE]"
   echo "  -k | --private-key          : speficy private key location [$DEFAULT_PRIVATE_KEY]"
   echo "  -t | --tools                : specify tools to install [$DEFAULT_TOOLS]"
+  echo "  -m | --metasploit           : install metasploit[$DEFAULT_METASPLOIT]"
   echo "     | --repos                : specify repos to pull [$DEFAULT_REPOS]"
   echo "  -h | --help                 : Print this menu"
 }
@@ -69,6 +72,11 @@ while [[ $# -gt 0 ]]; do
 
     -t | --tools)
     TOOLS=$2
+    shift
+    ;;
+    
+    -m | --metasploit)
+    METASPLOIT=$2
     shift
     ;;
 
@@ -183,6 +191,10 @@ for repo in ${REPOS}; do
   userSubMessage "cloning ${repo}"
   $SSH_COMMAND "git clone https://github.com/${repo}.git"
 done
+if [ "${METASPLOIT}" != "n" ]; then
+  userMessage "installing metasploit"
+  $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install metasploit-framework" > /dev/null
+fi
 userMessage "install compose"
 $SSH_COMMAND "curl -LO \"https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)\""
 $SSH_COMMAND "mv docker-compose-$(uname -s)-$(uname -m) /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose"
@@ -194,4 +206,4 @@ userMessage "starting vpn"
 $SSH_COMMAND "docker-compose -f ${VPN_COMPOSE} up -d" > /dev/null
 userMessage "VPN Server set up at $DROPLET_IP"
 userMessage "use this command to interact with droplet"
-userMessage "echo $SSH_COMMAND"
+userMessage "$SSH_COMMAND"
