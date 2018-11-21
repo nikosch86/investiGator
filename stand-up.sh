@@ -8,8 +8,8 @@ DEFAULT_SLUG=2gb
 DEFAULT_NAME=investig
 DEFAULT_IMAGE=ubuntu-16-04-x64
 DEFAULT_PRIVATE_KEY=~/.ssh/id_rsa
-DEFAULT_TOOLS="nmap git wpscan exploitdb mimikatz hashcat hydra gobuster crunch lynx"
-DEFAULT_REPOS="danielmiessler/SecLists magnumripper/JohnTheRipper"
+DEFAULT_TOOLS="nmap git wpscan exploitdb hashcat hydra gobuster crunch lynx seclists wordlists dirb"
+DEFAULT_REPOS="magnumripper/JohnTheRipper"
 DEFAULT_METASPLOIT="no"
 REGION=$DEFAULT_REGION
 SLUG=$DEFAULT_SLUG
@@ -191,19 +191,19 @@ for repo in ${REPOS}; do
   userSubMessage "cloning ${repo}"
   $SSH_COMMAND "git clone https://github.com/${repo}.git"
 done
-if [ "${METASPLOIT}" != "n" ]; then
+if [ "${METASPLOIT}" != "no" ]; then
   userMessage "installing metasploit"
   $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install metasploit-framework" > /dev/null
 fi
 userMessage "install compose"
-$SSH_COMMAND "curl -LO \"https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)\""
+$SSH_COMMAND "curl -LO \"https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-x86_64\""
 $SSH_COMMAND "mv docker-compose-$(uname -s)-$(uname -m) /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose"
 userMessage "putting compose file in place"
 $SSH_COMMAND "mkdir -p vpn"
 scp -i ${PRIVATE_KEY} ${VPN_COMPOSE} root@${DROPLET_IP}:/root/vpn/
 
 userMessage "starting vpn"
-$SSH_COMMAND "docker-compose -f ${VPN_COMPOSE} up -d" > /dev/null
+$SSH_COMMAND "/usr/local/bin/docker-compose -f ${VPN_COMPOSE} up -d" > /dev/null
 userMessage "VPN Server set up at $DROPLET_IP"
 userMessage "use this command to interact with droplet"
 userMessage "$SSH_COMMAND"
