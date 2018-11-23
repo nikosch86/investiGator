@@ -196,8 +196,8 @@ if [ "${METASPLOIT}" != "no" ]; then
   $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install metasploit-framework" > /dev/null
 fi
 userMessage "install compose"
-$SSH_COMMAND "curl -LO \"https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-x86_64\""
-$SSH_COMMAND "mv docker-compose-$(uname -s)-$(uname -m) /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose"
+$SSH_COMMAND "curl -L \"https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-x86_64\" -o /usr/local/bin/docker-compose"
+$SSH_COMMAND "chmod +x /usr/local/bin/docker-compose"
 userMessage "putting compose file in place"
 $SSH_COMMAND "mkdir -p vpn"
 scp -i ${PRIVATE_KEY} ${VPN_COMPOSE} root@${DROPLET_IP}:/root/vpn/
