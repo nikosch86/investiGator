@@ -9,8 +9,9 @@ DEFAULT_NAME=investig
 DEFAULT_IMAGE=ubuntu-16-04-x64
 DEFAULT_PRIVATE_KEY=~/.ssh/id_rsa
 DEFAULT_TOOLS="nmap git wpscan exploitdb hashcat hydra gobuster crunch lynx seclists wordlists dirb"
-DEFAULT_REPOS="magnumripper/JohnTheRipper"
+DEFAULT_REPOS="magnumripper/JohnTheRipper erwanlr/Fingerprinter"
 DEFAULT_METASPLOIT="no"
+DEFAULT_BARE="no"
 REGION=$DEFAULT_REGION
 SLUG=$DEFAULT_SLUG
 NAME=$DEFAULT_NAME
@@ -19,6 +20,7 @@ PRIVATE_KEY=$DEFAULT_PRIVATE_KEY
 TOOLS=$DEFAULT_TOOLS
 REPOS=$DEFAULT_REPOS
 METASPLOIT=$DEFAULT_METASPLOIT
+BARE=$DEFAULT_BARE
 COMPOSE_VERSION="1.23.1"
 
 function printUsage() {
@@ -30,6 +32,7 @@ function printUsage() {
   echo "  -s | --slug                 : specify slug size [$DEFAULT_SLUG]"
   echo "  -n | --name                 : specify droplet name [$DEFAULT_NAME]"
   echo "  -i | --image                : specify image slug [$DEFAULT_IMAGE]"
+  echo "  -b | --bare                 : return a bare droplet (no tools installed) [$DEFAULT_BARE]"
   echo "  -k | --private-key          : speficy private key location [$DEFAULT_PRIVATE_KEY]"
   echo "  -t | --tools                : specify tools to install [$DEFAULT_TOOLS]"
   echo "  -m | --metasploit           : install metasploit[$DEFAULT_METASPLOIT]"
@@ -77,6 +80,11 @@ while [[ $# -gt 0 ]]; do
     
     -m | --metasploit)
     METASPLOIT=$2
+    shift
+    ;;
+    
+    -b | --bare)
+    BARE=$2
     shift
     ;;
 
@@ -184,16 +192,20 @@ userSubMessage "fix issue with console-setup-linux"
 $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -o Dpkg::Options::=\"--force-overwrite\" -yq install console-setup-linux" > /dev/null
 userSubMessage "updating system"
 $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq upgrade" > /dev/null
-userMessage "installing tools ${TOOLS}"
-$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install docker-ce ${TOOLS}" > /dev/null
-userMessage "cloning repos ${REPOS}"
-for repo in ${REPOS}; do
-  userSubMessage "cloning ${repo}"
-  $SSH_COMMAND "git clone https://github.com/${repo}.git"
-done
-if [ "${METASPLOIT}" != "no" ]; then
-  userMessage "installing metasploit"
-  $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install metasploit-framework" > /dev/null
+userMessage "installing docker"
+$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install docker-ce" > /dev/null
+if [ "${BARE}" == "no" ]; then
+  userMessage "installing tools ${TOOLS}"
+  $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install ${TOOLS}" > /dev/null
+  userMessage "cloning repos ${REPOS}"
+  for repo in ${REPOS}; do
+    userSubMessage "cloning ${repo}"
+    $SSH_COMMAND "git clone https://github.com/${repo}.git"
+  done
+  if [ "${METASPLOIT}" != "no" ]; then
+    userMessage "installing metasploit"
+    $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install metasploit-framework" > /dev/null
+  fi
 fi
 userMessage "install compose"
 $SSH_COMMAND "curl -L \"https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-x86_64\" -o /usr/local/bin/docker-compose"
