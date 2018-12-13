@@ -77,12 +77,12 @@ while [[ $# -gt 0 ]]; do
     TOOLS=$2
     shift
     ;;
-    
+
     -m | --metasploit)
     METASPLOIT=$2
     shift
     ;;
-    
+
     -b | --bare)
     BARE=$2
     shift
@@ -194,6 +194,7 @@ userSubMessage "updating system"
 $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq upgrade" > /dev/null
 userMessage "installing docker"
 $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install docker-ce" > /dev/null
+$SSH_COMMAND "systemctl start docker-ce"
 if [ "${BARE}" == "no" ]; then
   userMessage "installing tools ${TOOLS}"
   $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install ${TOOLS}" > /dev/null
@@ -215,7 +216,7 @@ $SSH_COMMAND "mkdir -p vpn"
 scp -i ${PRIVATE_KEY} ${VPN_COMPOSE} root@${DROPLET_IP}:/root/vpn/
 
 userMessage "starting vpn"
-$SSH_COMMAND "/usr/local/bin/docker-compose -f ${VPN_COMPOSE} up -d" > /dev/null
+$SSH_COMMAND "cd /root/vpn && /usr/local/bin/docker-compose -f ${VPN_COMPOSE} up -d" > /dev/null
 userMessage "VPN Server set up at $DROPLET_IP"
 userMessage "use this command to interact with droplet"
 userMessage "$SSH_COMMAND"
