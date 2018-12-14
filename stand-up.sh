@@ -194,7 +194,7 @@ userSubMessage "updating system"
 $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq upgrade" > /dev/null
 userMessage "installing docker"
 $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install docker-ce" > /dev/null
-$SSH_COMMAND "systemctl start docker-ce"
+$SSH_COMMAND "systemctl start docker"
 if [ "${BARE}" == "no" ]; then
   userMessage "installing tools ${TOOLS}"
   $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install ${TOOLS}" > /dev/null
