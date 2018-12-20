@@ -197,7 +197,7 @@ $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install docker-
 $SSH_COMMAND "systemctl start docker"
 if [ "${BARE}" == "no" ]; then
   userMessage "installing tools ${TOOLS}"
-  $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install ${TOOLS}" > /dev/null
+  $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install ${TOOLS} zlib1g-dev ruby-dev" > /dev/null
   userMessage "cloning repos ${REPOS}"
   for repo in ${REPOS}; do
     userSubMessage "cloning ${repo}"
