@@ -180,21 +180,24 @@ $SSH_COMMAND exit > /dev/null
 userMessage "setting up system"
 userSubMessage "fixing default locale"
 $SSH_COMMAND "echo LC_ALL=\"en_US.UTF-8\" >> /etc/default/locale"
-userSubMessage "add kali-rolling and docker repos"
-$SSH_COMMAND "curl -fsSL https://archive.kali.org/archive-key.asc | apt-key add -" > /dev/null
+userSubMessage "adding docker repository"
 $SSH_COMMAND "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -" > /dev/null
-$SSH_COMMAND "echo \"deb https://http.kali.org/kali kali-rolling main non-free contrib\" > /etc/apt/sources.list"
-$SSH_COMMAND "echo \"deb-src https://http.kali.org/kali kali-rolling main non-free contrib\" >> /etc/apt/sources.list"
-$SSH_COMMAND "echo \"deb https://download.docker.com/linux/ubuntu xenial stable\" >> /etc/apt/sources.list"
+$SSH_COMMAND "add-apt-repository \"deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable\""
+userSubMessage "updating apt"
+$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -q update" > /dev/null
+userSubMessage "updating system"
+$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq upgrade" > /dev/null
+userSubMessage "installing docker"
+$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install docker-ce" > /dev/null
+$SSH_COMMAND "systemctl start docker"
+userSubMessage "add kali-rolling repo"
+$SSH_COMMAND "curl -fsSL https://archive.kali.org/archive-key.asc | apt-key add -" > /dev/null
+$SSH_COMMAND "echo \"deb http://http.kali.org/kali kali-rolling main non-free contrib\" > /etc/apt/sources.list.d/kali.list"
+$SSH_COMMAND "echo \"deb-src http://http.kali.org/kali kali-rolling main non-free contrib\" >> /etc/apt/sources.list.d/kali.list"
 userSubMessage "updating apt"
 $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -q update" > /dev/null
 userSubMessage "fix issue with console-setup-linux"
 $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -o Dpkg::Options::=\"--force-overwrite\" -yq install console-setup-linux" > /dev/null
-userSubMessage "updating system"
-$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq upgrade" > /dev/null
-userMessage "installing docker"
-$SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install docker-ce" > /dev/null
-$SSH_COMMAND "systemctl start docker"
 if [ "${BARE}" == "no" ]; then
   userMessage "installing tools ${TOOLS}"
   $SSH_COMMAND "export DEBIAN_FRONTEND=noninteractive; apt-get -yq install ${TOOLS} zlib1g-dev ruby-dev" > /dev/null
