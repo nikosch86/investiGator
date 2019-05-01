@@ -1,0 +1,5 @@
+paramiko==2.4.2
+coloredlogs==10.0
+python_digitalocean==1.14.0
+secrets==1.0.2
+strings==0.1.2
