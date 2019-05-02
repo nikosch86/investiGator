@@ -22,6 +22,7 @@ argparser.add_argument("--tool", help="additonal tools to install", action='appe
 argparser.add_argument("--repo", help="additonal repos to install", action='append')
 argparser.add_argument("--vpn", help="vpn service to install", action='append', choices=['ipsec', 'openvpn', 'shadowsocks'])
 argparser.add_argument("--force", help="overwrite existing incstances", action='store_true')
+argparser.add_argument("--destroy", help="destroy existing incstances", action='store_true')
 argparser.add_argument("--bare", help="create bare instance", action='store_true')
 argparser.add_argument("--compose-version", default='1.23.1')
 argparser.add_argument("--verbose", "-v", action='count', default=0)
@@ -46,7 +47,7 @@ def cleanup_and_die(msg):
     try:
         droplet
         if droplet.id != None:
-            logger.critical("calling destryoy() on instance id {}".format(droplet.id))
+            logger.critical("calling destroy() on instance id {}".format(droplet.id))
             droplet.destroy()
     except NameError:
         logger.debug('no instance has been created yet')
@@ -103,6 +104,8 @@ if os.path.exists(config['ssh_private_key']):
         cleanup_and_die("the private key '{}' requires a password, as of now this is not supported, please us a private key without password".format(config['ssh_private_key']))
     except paramiko.ssh_exception.SSHException:
         cleanup_and_die("the private key '{}' does not seem to be a proper RSA key and can not be supported".format(config['ssh_private_key']))
+else:
+    cleanup_and_die("missing private key")
 
 if os.getenv('DIGITALOCEAN_API_KEY', False) and not args.digitalocean_api_key:
     logger.info('using digitalocean api key from environment')
@@ -113,19 +116,17 @@ elif 'digitalocean_api_key' in args:
 def validate_digitalocean():
     if not 'digitalocean' in cloudkeys:
         cleanup_and_die('can not find digitalocean api key, please supply via CLI, config file or environment variable "DIGITALOCEAN_API_KEY"')
-    if len(cloudkeys['digitalocean']) != 64:
-        cleanup_and_die('the digitalocean API key has to be 64 characters long')
     do_manager = digitalocean.Manager(token=cloudkeys['digitalocean'])
     try:
         raw_instances = do_manager.get_data("droplets/")
-    except digitalocean.DataReadError as Message:
+    except (digitalocean.DataReadError,digitalocean.TokenError) as Message:
         cleanup_and_die('got exception connecting to cloud provider "{}"'.format(Message))
 
     instances = list()
     for instance in raw_instances['droplets']:
         instances.append(instance['name'])
 
-    if config['name'] in instances:
+    if config['name'] in instances and not config['destroy']:
         logger.warning('the requested name "{}" is already taken'.format(config['name']))
         if config['force']:
             raw_instances = do_manager.get_data("droplets/")
@@ -159,6 +160,12 @@ def validate_digitalocean():
 if args.target == 'digitalocean':
     logger.info("validating settings")
     do_manager = validate_digitalocean()
+    if config['destroy']:
+        all_droplets = do_manager.get_all_droplets()
+        for droplet in all_droplets:
+            if droplet.name == config['name']:
+                droplet.shutdown()
+        cleanup_and_die("destroyed instances, aborting")
     raw_keys = do_manager.get_data("account/keys/")
     keys_fingerprints = list()
     for key in raw_keys['ssh_keys']:
