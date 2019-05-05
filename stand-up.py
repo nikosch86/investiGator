@@ -51,6 +51,12 @@ def cleanup_and_die(msg):
             droplet.destroy()
     except NameError:
         logger.debug('no instance has been created yet')
+    try:
+        addKey
+        logger.critical("calling destroy() on added ssh key object fingerprint {} and name {}".format(addKey.fingerprint, addKey.name))
+        addKey.destroy()
+    except NameError:
+        pass
 
     logger.critical(msg)
     sys.exit(2)
@@ -110,7 +116,8 @@ else:
 if os.getenv('DIGITALOCEAN_API_KEY', False) and not args.digitalocean_api_key:
     logger.info('using digitalocean api key from environment')
     cloudkeys['digitalocean'] = os.getenv('DIGITALOCEAN_API_KEY', False)
-elif 'digitalocean_api_key' in args:
+elif args.digitalocean_api_key:
+    logger.debug("using digitalocean api key from arguments")
     cloudkeys['digitalocean'] = args.digitalocean_api_key
 
 def validate_digitalocean():
@@ -164,7 +171,7 @@ if args.target == 'digitalocean':
         all_droplets = do_manager.get_all_droplets()
         for droplet in all_droplets:
             if droplet.name == config['name']:
-                droplet.shutdown()
+                droplet.destroy()
         cleanup_and_die("destroyed instances, aborting")
     raw_keys = do_manager.get_data("account/keys/")
     keys_fingerprints = list()
@@ -199,6 +206,12 @@ if args.target == 'digitalocean':
         cleanup_and_die('something went wrong creating the instance, the status is "{}"'.format(droplet.status))
     instance_ip = droplet.ip_address
     logger.info("instance with id {} has external IP {}".format(droplet.id, instance_ip))
+    try:
+        addKey
+        logger.critical("calling destroy() on added ssh key object fingerprint {} and name {}".format(addKey.fingerprint, addKey.name))
+        addKey.destroy()
+    except NameError:
+        pass
 
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy)
@@ -219,10 +232,12 @@ while True:
         cleanup_and_die("unable to connect to {} via SSH within time limit of {} seconds".format(instance_ip, config['ssh_connection_tries']))
 
 logger.info("setting up system")
+# stdin, stdout, stderr = ssh.exec_command("echo LC_ALL=\"en_US.UTF-8\" >> /etc/default/locale && \
+#     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
+#     add-apt-repository \"deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable\" && \
+#     export DEBIAN_FRONTEND=noninteractive; apt-get -q update && apt-get -yq upgrade && apt-get -yq install docker-ce")
 stdin, stdout, stderr = ssh.exec_command("echo LC_ALL=\"en_US.UTF-8\" >> /etc/default/locale && \
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
-    add-apt-repository \"deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable\" && \
-    export DEBIAN_FRONTEND=noninteractive; apt-get -q update && apt-get -yq upgrade && apt-get -yq install docker-ce")
+    curl https://get.docker.com | bash")
 logger.debug(stdout.read())
 if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
 
@@ -271,6 +286,7 @@ if vars(args)['repo']:
 if vars(args)['vpn']:
     for vpn in config['vpn']:
         logger.info('installing vpn service {}'.format(vpn))
+
         if vpn == 'ipsec':
             ssh.exec_command("mkdir -p /root/vpn")
             sftp = ssh.open_sftp()
@@ -296,6 +312,9 @@ if vars(args)['vpn']:
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
             print("ShadowSocks Server set up at {}, on the client install using pip 'pip install shadowsocks'".format(instance_ip))
             print("\n# sslocal -s {} -p {} -k {}\n".format(instance_ip, 8388, shadowsocks_password))
+        #
+        # if vpn == 'openvpn':
+
 
 ssh.close()
 write_config(config, configfile)
