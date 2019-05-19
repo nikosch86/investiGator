@@ -189,7 +189,14 @@ def validate_gcloud():
     if not 'gcloud' in cloudkeys:
         cleanup_and_die('can not find GCloud API key file, please supply via CLI, config file or environment variable "GCLOUD_API_KEY"')
     if not config['gcloud_project_id']:
-        cleanup_and_die("missing GCloud project ID, please look up or create a project in the GCloud console")
+        with open(cloudkeys['gcloud']) as gcloud_json_file:
+            gcloud_json = json.load(gcloud_json_file)
+            if gcloud_json['project_id']:
+                config['gcloud_project_id'] = gcloud_json['project_id']
+                logger.info("extraced GCloud project ID from key file")
+            else:
+                cleanup_and_die("missing GCloud project ID, please look up or create a project in the GCloud console")
+
     try:
         gc_credentials = service_account.Credentials.from_service_account_file(cloudkeys['gcloud'])
     except FileNotFoundError:
@@ -206,7 +213,7 @@ def validate_gcloud():
         if reason.startswith('Failed to find project'):
             cleanup_and_die("GCloud Project not found, please specify full id (e.g. some-name-1234)")
         else:
-            cleanup_and_die("Error querying zones: '{}'".format(Message))
+            cleanup_and_die("Error querying instances, please check project ID and key/service account permissions:\n{}".format(Message))
 
     printProgressBar(1)
 
