@@ -207,7 +207,7 @@ def validate_gcloud():
     gce_manager = googleapiclient.discovery.build('compute', 'v1', credentials=gc_credentials, cache_discovery=False)
 
     try:
-        raw_all_instances = gce_manager.instances().aggregatedList(project=config['gcloud_project_id'], filter='name = "investig"').execute()
+        raw_all_instances = gce_manager.instances().aggregatedList(project=config['gcloud_project_id']).execute()
     except googleapiclient.errors.HttpError as Message:
         reason = json.loads(Message.content).get('error').get('message')
         if reason.startswith('Failed to find project'):
