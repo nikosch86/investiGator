@@ -1,2 +1,6 @@
 coloredlogs==10.0
 paramiko==2.4.2
+python-digitalocean
+google-api-python-client
+pprint
+secrets
