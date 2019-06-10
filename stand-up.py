@@ -31,6 +31,7 @@ argparser.add_argument("--bare", help="create bare instance", action='store_true
 argparser.add_argument("--compose-version", default='1.23.1')
 argparser.add_argument("--verbose", "-v", action='count', default=0)
 argparser.add_argument("--ssh-private-key", help="ssh key to access instance", default=expanduser("~") + '/.ssh/id_rsa')
+argparser.add_argument("--create-private-key", help="create ssh key to access instance", action='store_true')
 args = argparser.parse_args()
 
 levels = [logging.WARNING, logging.INFO, logging.DEBUG]
@@ -130,6 +131,13 @@ if os.path.exists(config['ssh_private_key']):
     except paramiko.ssh_exception.SSHException:
         cleanup_and_die("the private key '{}' does not seem to be an RSA key in PEM and can not be supported (use 'ssh-keygen -t rsa -m pem')".format(config['ssh_private_key']))
 else:
+    if config['create_private_key']:
+        logger.info('missing private key, creating')
+        pKey = paramiko.RSAKey.generate(2048)
+        pKey.write_private_key_file(config['ssh_private_key'])
+        with open(config['ssh_private_key']+'.pub', 'w') as pubKeyFileFD:
+            pubKeyFileFD.write('ssh-rsa '+pKey.get_base64())
+        pKey = paramiko.RSAKey.from_private_key_file(config['ssh_private_key'])
     cleanup_and_die("missing private key")
 
 if os.getenv('DIGITALOCEAN_API_KEY', False) and not args.digitalocean_api_key:
