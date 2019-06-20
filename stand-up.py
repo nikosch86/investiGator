@@ -11,26 +11,27 @@ import coloredlogs, logging
 logger = logging.getLogger(__name__)
 
 argparser = argparse.ArgumentParser()
-argparser.add_argument("--target", default='digitalocean', help="which provider to use", choices=['digitalocean', 'gcloud'])
+argparser.add_argument("--target", "-t", default='digitalocean', help="which provider to use (default: digitalocean)", choices=['digitalocean', 'gcloud'])
 argparser.add_argument("--digitalocean-api-key", help="API key for digitalocean")
 argparser.add_argument("--gcloud-api-key-file", help="API key file for GCloud")
-argparser.add_argument("--gcloud-project-id", help="Project ID for GCloud")
-argparser.add_argument("--name", help="slug name", default='investig')
-argparser.add_argument("--region", help="region or zone", default='random')
-argparser.add_argument("--size", help="slug size or machine type", default='2gb')
-argparser.add_argument("--image", help="slug image", default='ubuntu-16-04-x64')
-argparser.add_argument("--user", help="username to use for ssh connection", default='root')
-argparser.add_argument("--ssh-port", help="port to use for ssh connection", default=22, type=int)
-argparser.add_argument("--ssh-connection-tries", help="how many times to try to establish ssh connection", default=30, type=int)
+argparser.add_argument("--gcloud-project-id", help="Project ID for GCloud (default: first available project id)")
+argparser.add_argument("--name", "-n", help="slug name (default: %(default)s)", default='investig')
+argparser.add_argument("--region", "-r", help="region or zone (default: selects random region/zone)", default='random')
+argparser.add_argument("--size", "-s", help="slug size or machine type (default: %(default)s)", default='2gb')
+argparser.add_argument("--image", "-i", help="slug image (default: %(default)s)", default='ubuntu-16-04-x64')
+argparser.add_argument("--user", "-u", help="username to use for ssh connection (default: %(default)s)", default='root')
+argparser.add_argument("--ssh-port", help="port to use for ssh connection (default: %(default)s)", default=22, type=int)
+argparser.add_argument("--ssh-connection-tries", help="how many times to try to establish ssh connection (default: %(default)s)", default=30, type=int)
 argparser.add_argument("--tool", help="additonal tools to install", action='append')
 argparser.add_argument("--repo", help="additonal repos to install", action='append')
 argparser.add_argument("--vpn", help="vpn service to install", action='append', choices=['ipsec', 'openvpn', 'shadowsocks'])
 argparser.add_argument("--force", help="overwrite existing incstances", action='store_true')
 argparser.add_argument("--destroy", help="destroy existing incstances", action='store_true')
-argparser.add_argument("--bare", help="create bare instance", action='store_true')
-argparser.add_argument("--compose-version", default='1.23.1')
+argparser.add_argument("--bare", "-b", help="create bare instance", action='store_true')
+argparser.add_argument("--compose-version", help="compose version (default: %(default)s)", default='1.23.1')
 argparser.add_argument("--verbose", "-v", action='count', default=0)
-argparser.add_argument("--ssh-private-key", help="ssh key to access instance", default=expanduser("~") + '/.ssh/id_rsa')
+argparser.add_argument("--quiet", "-q", help="only display errors and IP", action='store_true')
+argparser.add_argument("--ssh-private-key", help="SSH key to access instance (default: %(default)s)", default=expanduser("~") + '/.ssh/id_rsa')
 argparser.add_argument("--create-private-key", help="create ssh key to access instance", action='store_true')
 args = argparser.parse_args()
 
@@ -118,6 +119,10 @@ else:
     write_config(config, configfile)
 
 config = {**config, **vars(args)}
+
+if config['quiet'] and config['verbose'] > 0:
+    cleanup_and_die("options quiet and verbose are mutually exclusive")
+
 logger.debug(config)
 
 if os.path.exists(config['ssh_private_key']):
@@ -177,6 +182,8 @@ def gcloud_wait(gce_manager, zone, operation):
         time.sleep(1)
 
 def printProgressBar(iteration, total=16, length = 100, fill = '█'):
+    if config['quiet']:
+        return
     """
     Call in a loop to create terminal progress bar
     @params:
@@ -357,11 +364,12 @@ if args.target == 'digitalocean':
     do_manager = validate_digitalocean()
     printProgressBar(4)
     if config['destroy']:
-        all_droplets = do_manager.get_all_droplets()
-        for droplet in all_droplets:
-            if droplet.name == config['name']:
-                droplet.destroy()
-        cleanup_and_die("destroyed instances, aborting")
+        raw_instances = do_manager.get_data("droplets/")
+        for instance in raw_instances['droplets']:
+            if instance['name'] == config['name']:
+                existing_instance = do_manager.get_droplet(instance['id'])
+                existing_instance.destroy()
+                cleanup_and_die("destroyed instance id {}, aborting".format(instance['id']))
     raw_keys = do_manager.get_data("account/keys/")
     keys_fingerprints = list()
     for key in raw_keys['ssh_keys']:
@@ -598,5 +606,9 @@ if vars(args)['vpn']:
 ssh.close()
 write_config(config, configfile)
 printProgressBar(16)
-print("use this command to interact with droplet")
-print("ssh -o StrictHostKeyChecking=no -p{} -i {} {}@{}".format(config['ssh_port'], config['ssh_private_key'], config['user'], instance_ip))
+
+if config['quiet']:
+    print("{}".format(instance_ip))
+else:
+    print("use this command to interact with droplet")
+    print("ssh -o StrictHostKeyChecking=no -p{} -i {} {}@{}".format(config['ssh_port'], config['ssh_private_key'], config['user'], instance_ip))
