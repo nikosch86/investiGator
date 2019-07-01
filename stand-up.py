@@ -24,7 +24,7 @@ argparser.add_argument("--ssh-port", help="port to use for ssh connection (defau
 argparser.add_argument("--ssh-connection-tries", help="how many times to try to establish ssh connection (default: %(default)s)", default=30, type=int)
 argparser.add_argument("--tool", help="additonal tools to install", action='append')
 argparser.add_argument("--repo", help="additonal repos to install", action='append')
-argparser.add_argument("--vpn", help="vpn service to install", action='append', choices=['ipsec', 'openvpn', 'shadowsocks'])
+argparser.add_argument("--service", help="service to install", action='append', choices=['ipsec', 'proxy', 'shadowsocks'])
 argparser.add_argument("--force", help="overwrite existing incstances", action='store_true')
 argparser.add_argument("--destroy", help="destroy existing incstances", action='store_true')
 argparser.add_argument("--bare", "-b", help="create bare instance", action='store_true')
@@ -570,11 +570,11 @@ if vars(args)['repo']:
 
 printProgressBar(15)
 
-if vars(args)['vpn']:
-    for vpn in config['vpn']:
-        logger.info('installing vpn service {}'.format(vpn))
+if vars(args)['service']:
+    for service in config['service']:
+        logger.info('installing service {}'.format(service))
 
-        if vpn == 'ipsec':
+        if service == 'ipsec':
             ssh.exec_command("mkdir -p /root/vpn")
             sftp = ssh.open_sftp()
             sftp.put(ipsec_vpn_compose, "/root/vpn/"+ipsec_vpn_compose)
@@ -584,7 +584,7 @@ if vars(args)['vpn']:
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
             print("IPSec VPN Server set up at "+instance_ip)
 
-        if vpn == 'shadowsocks':
+        if service == 'shadowsocks':
             try:
                 import strings
                 import secrets
@@ -594,13 +594,29 @@ if vars(args)['vpn']:
                 logger.warning("strings and secrets module not found, falling back to insecure password generation")
                 shadowsocks_password = hashlib.sha256(time.asctime().encode('utf-8')).hexdigest()
 
-            stdin, stdout, stderr = ssh.exec_command("docker run -e PASSWORD={} -p8388:8388 -p8388:8388/udp -d shadowsocks/shadowsocks-libev".format(shadowsocks_password))
+            stdin, stdout, stderr = ssh.exec_command("docker run -e PASSWORD={} -e METHOD=aes-256-gcm -p8388:8388 -p8388:8388/udp -d shadowsocks/shadowsocks-libev".format(shadowsocks_password))
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
-            print("ShadowSocks Server set up at {}, on the client install using pip 'pip install shadowsocks'".format(instance_ip))
-            print("\n# sslocal -s {} -p {} -k {}\n".format(instance_ip, 8388, shadowsocks_password))
+            print("ShadowSocks Server set up at {}, on the client install using apt 'apt install shadowsocks-libev'".format(instance_ip))
+            print("\n# ss-local -l 1080 -m aes-256-gcm -s {} -p {} -k {}\n".format(instance_ip, 8388, shadowsocks_password))
+        if service == 'proxy':
+            try:
+                import strings
+                import secrets
+                alphabet = string.ascii_letters + string.digits
+                proxy_password = ''.join(secrets.choice(alphabet) for i in range(16))
+            except (ImportError, ModuleNotFoundError):
+                logger.warning("strings and secrets module not found, falling back to insecure password generation")
+                proxy_password = hashlib.sha256(time.asctime().encode('utf-8')).hexdigest()
+
+            stdin, stdout, stderr = ssh.exec_command("docker run -e PROXY_PASSWORD={} -e PROXY_USER=user -p{}:{} -d serjs/go-socks5-proxy".format(proxy_password, 1080, 1080))
+            logger.debug("".join(stdout.readlines()))
+            if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+            print("Proxy Server set up at {}, use in proxychains like this:".format(instance_ip))
+            print("\nsocks5 {} {} user {}".format(instance_ip, 1080, proxy_password))
+
         #
-        # if vpn == 'openvpn':
+        # if service == 'openvpn':
 
 
 ssh.close()
