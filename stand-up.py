@@ -331,6 +331,15 @@ def validate_digitalocean():
         else:
             exit(1)
 
+    if config['destroy']:
+        raw_instances = do_manager.get_data("droplets/")
+        for instance in raw_instances['droplets']:
+            if instance['name'] == config['name']:
+                existing_instance = do_manager.get_droplet(instance['id'])
+                existing_instance.destroy()
+                cleanup_and_die("destroyed instance id {}, aborting".format(instance['id']))
+        cleanup_and_die("no instance with name {} found, aborting".format(config['name']))
+
     printProgressBar(2)
 
     raw_regions = do_manager.get_data("regions/")
@@ -365,13 +374,6 @@ printProgressBar(0)
 if args.target == 'digitalocean':
     do_manager = validate_digitalocean()
     printProgressBar(4)
-    if config['destroy']:
-        raw_instances = do_manager.get_data("droplets/")
-        for instance in raw_instances['droplets']:
-            if instance['name'] == config['name']:
-                existing_instance = do_manager.get_droplet(instance['id'])
-                existing_instance.destroy()
-                cleanup_and_die("destroyed instance id {}, aborting".format(instance['id']))
     raw_keys = do_manager.get_data("account/keys/")
     keys_fingerprints = list()
     for key in raw_keys['ssh_keys']:
