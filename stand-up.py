@@ -24,7 +24,7 @@ argparser.add_argument("--ssh-port", help="port to use for ssh connection (defau
 argparser.add_argument("--ssh-connection-tries", help="how many times to try to establish ssh connection (default: %(default)s)", default=30, type=int)
 argparser.add_argument("--tool", help="additonal tools to install", action='append')
 argparser.add_argument("--repo", help="additonal repos to install", action='append')
-argparser.add_argument("--service", help="service to install", action='append', choices=['ipsec', 'proxy', 'shadowsocks'])
+argparser.add_argument("--service", help="service to install", action='append', choices=['ipsec', 'proxy', 'shadowsocks', 'wireguard'])
 argparser.add_argument("--force", help="overwrite existing incstances", action='store_true')
 argparser.add_argument("--destroy", help="destroy existing incstances", action='store_true')
 argparser.add_argument("--bare", "-b", help="create bare instance", action='store_true')
@@ -41,6 +41,8 @@ coloredlogs.install(level=level)
 
 cloudkeys = {}
 ipsec_vpn_compose = "ipsec.yml"
+wireguard_config_script = "wireguard.sh"
+wireguard_port = 1194
 
 configfile = expanduser("~") + '/.config/investiGator.json'
 
@@ -582,6 +584,7 @@ if vars(args)['service']:
             stdin, stdout, stderr = ssh.exec_command("cd /root/vpn && /usr/local/bin/docker-compose -f {} up -d".format(ipsec_vpn_compose))
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+            printProgressBar(16)
             print("IPSec VPN Server set up at "+instance_ip)
 
         if service == 'shadowsocks':
@@ -597,6 +600,7 @@ if vars(args)['service']:
             stdin, stdout, stderr = ssh.exec_command("docker run -e PASSWORD={} -e METHOD=aes-256-gcm -p8388:8388 -p8388:8388/udp -d shadowsocks/shadowsocks-libev".format(shadowsocks_password))
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+            printProgressBar(16)
             print("ShadowSocks Server set up at {}, on the client install using apt 'apt install shadowsocks-libev'".format(instance_ip))
             print("\n# ss-local -l 1080 -m aes-256-gcm -s {} -p {} -k {}\n".format(instance_ip, 8388, shadowsocks_password))
         if service == 'proxy':
@@ -612,19 +616,39 @@ if vars(args)['service']:
             stdin, stdout, stderr = ssh.exec_command("docker run -e PROXY_PASSWORD={} -e PROXY_USER=user -p{}:{} -d serjs/go-socks5-proxy".format(proxy_password, 1080, 1080))
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+            printProgressBar(16)
             print("Proxy Server set up at {}, use in proxychains like this:".format(instance_ip))
             print("\nsocks5 {} {} user {}".format(instance_ip, 1080, proxy_password))
-
+        if service == 'wireguard':
+            stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; add-apt-repository -yu ppa:wireguard/wireguard && apt-get -yq install wireguard")
+            logger.debug("".join(stdout.readlines()))
+            if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+            sftp = ssh.open_sftp()
+            sftp.put(wireguard_config_script, "/root/"+wireguard_config_script)
+            sftp.close()
+            stdin, stdout, stderr = ssh.exec_command("bash {} {} {} && wg-quick up wg0".format("/root/"+wireguard_config_script, instance_ip, wireguard_port))
+            logger.debug("".join(stdout.readlines()))
+            if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+            stdin, stdout, stderr = ssh.exec_command("cat ~/wg0.conf")
+            if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+            stdout = "".join(stdout.readlines())
+            logger.debug(stdout)
+            wireguard_client_config = stdout
+            printProgressBar(16)
+            print("on the client install wireguard, save the config and run wg-quick up wg0 as root")
+            print("\n####\n\nOn Ubuntu run:\nsudo apt-get -yq install software-properties-common && sudo add-apt-repository -yu ppa:wireguard/wireguard && sudo apt-get -yq install wireguard")
+            print("\ncat << 'EOF' | sudo tee /etc/wireguard/wg0.conf\n{}\nEOF".format(wireguard_client_config))
+            print("\nsudo wg-quick up wg0")
         #
         # if service == 'openvpn':
-
+else:
+    printProgressBar(16)
 
 ssh.close()
 write_config(config, configfile)
-printProgressBar(16)
+
 
 if config['quiet']:
     print("{}".format(instance_ip))
 else:
-    print("use this command to interact with droplet")
-    print("ssh -o StrictHostKeyChecking=no -p{} -i {} {}@{}".format(config['ssh_port'], config['ssh_private_key'], config['user'], instance_ip))
+    print("\n###\n# ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p{} -i {} {}@{}".format(config['ssh_port'], config['ssh_private_key'], config['user'], instance_ip))
