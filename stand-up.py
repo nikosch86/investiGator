@@ -95,6 +95,8 @@ except ImportError:
     cleanup_and_die("please install the gcloud module: 'pip install -U google-api-python-client'")
 
 def write_config(configdict, configfile):
+    if not os.path.exists(os.path.dirname(configfile)):
+        os.mkdir(os.path.dirname(configfile))
     with open(configfile, 'w') as configfilefd:
         json.dump(configdict, configfilefd, sort_keys=True, indent=2)
 
@@ -140,12 +142,16 @@ if os.path.exists(config['ssh_private_key']):
 else:
     if config['create_private_key']:
         logger.info('missing private key, creating')
+        if not os.path.exists(os.path.dirname(config['ssh_private_key'])):
+            os.mkdir(os.path.dirname(config['ssh_private_key']))
+            os.chmod(os.path.dirname(config['ssh_private_key']), stat.S_IRWXU)
         pKey = paramiko.RSAKey.generate(2048)
         pKey.write_private_key_file(config['ssh_private_key'])
         with open(config['ssh_private_key']+'.pub', 'w') as pubKeyFileFD:
             pubKeyFileFD.write('ssh-rsa '+pKey.get_base64())
         pKey = paramiko.RSAKey.from_private_key_file(config['ssh_private_key'])
-    cleanup_and_die("missing private key")
+    else:
+        cleanup_and_die("missing private key")
 
 if os.getenv('DIGITALOCEAN_API_KEY', False) and not args.digitalocean_api_key:
     logger.info('using digitalocean api key from environment')
