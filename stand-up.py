@@ -25,6 +25,7 @@ argparser.add_argument("--ssh-connection-tries", help="how many times to try to 
 argparser.add_argument("--tool", help="additonal tools to install", action='append')
 argparser.add_argument("--repo", help="additonal repos to install", action='append')
 argparser.add_argument("--service", help="service to install", action='append', choices=['ipsec', 'proxy', 'shadowsocks', 'wireguard'])
+argparser.add_argument("--wallet", help="wallet to install", action='append', choices=['monero'])
 argparser.add_argument("--force", help="overwrite existing incstances", action='store_true')
 argparser.add_argument("--destroy", help="destroy existing incstances", action='store_true')
 argparser.add_argument("--bare", "-b", help="create bare instance", action='store_true')
@@ -579,6 +580,17 @@ if vars(args)['repo']:
     config['repo'] = False
 
 printProgressBar(15)
+
+if vars(args)['wallet']:
+    for item in config['wallet']:
+        logger.info('installing wallet {}'.format(item))
+
+        if item == 'monero':
+            stdin, stdout, stderr = ssh.exec_command("curl -L -o linux64.tar.bz2 https://downloads.getmonero.org/cli/linux64 && tar xf linux64.tar.bz2")
+            logger.debug("".join(stdout.readlines()))
+            if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+            printProgressBar(16)
+            print("monero wallet installed, to use with external node and restore from keys, run:\n## ATTENTION: using a remote node might compromise your privacy!\ncd ~/monero-x86_64-linux-gnu; ./monero-wallet-cli --daemon-address node.moneroworld.com:18089 --generate-from-keys restored-wallet")
 
 if vars(args)['service']:
     for service in config['service']:

@@ -19,6 +19,9 @@ currently supported are:
 - `ipsec`
 - `proxy`
 
+## Wallets
+supports installing wallets, for now only monero is supported.  
+
 ## help
 ```
 usage: stand-up.py [-h] [--target {digitalocean,gcloud}]
@@ -28,8 +31,9 @@ usage: stand-up.py [-h] [--target {digitalocean,gcloud}]
                    [--region REGION] [--size SIZE] [--image IMAGE]
                    [--user USER] [--ssh-port SSH_PORT]
                    [--ssh-connection-tries SSH_CONNECTION_TRIES] [--tool TOOL]
-                   [--repo REPO] [--service {ipsec,proxy,shadowsocks}]
-                   [--force] [--destroy] [--bare]
+                   [--repo REPO]
+                   [--service {ipsec,proxy,shadowsocks,wireguard}]
+                   [--wallet {monero}] [--force] [--destroy] [--bare]
                    [--compose-version COMPOSE_VERSION] [--verbose] [--quiet]
                    [--ssh-private-key SSH_PRIVATE_KEY] [--create-private-key]
 
@@ -57,8 +61,9 @@ optional arguments:
                         (default: 30)
   --tool TOOL           additonal tools to install
   --repo REPO           additonal repos to install
-  --service {ipsec,proxy,shadowsocks}
+  --service {ipsec,proxy,shadowsocks,wireguard}
                         service to install
+  --wallet {monero}     wallet to install
   --force               overwrite existing incstances
   --destroy             destroy existing incstances
   --bare, -b            create bare instance
@@ -68,6 +73,6 @@ optional arguments:
   --quiet, -q           only display errors and IP
   --ssh-private-key SSH_PRIVATE_KEY
                         SSH key to access instance (default:
-                        /Users/karl.gruber/.ssh/id_rsa)
+                        /Users/niko/.ssh/id_rsa)
   --create-private-key  create ssh key to access instance
   ```
