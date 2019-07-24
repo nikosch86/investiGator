@@ -617,12 +617,12 @@ if vars(args)['service']:
                 logger.warning("strings and secrets module not found, falling back to insecure password generation")
                 shadowsocks_password = hashlib.sha256(time.asctime().encode('utf-8')).hexdigest()
 
-            stdin, stdout, stderr = ssh.exec_command("docker run -e PASSWORD={} -e METHOD=aes-256-gcm -p8388:8388 -p8388:8388/udp -d shadowsocks/shadowsocks-libev".format(shadowsocks_password))
+            stdin, stdout, stderr = ssh.exec_command("docker run -e PASSWORD={} -e METHOD=aes-256-gcm -p443:8388 -p443:8388/udp -d shadowsocks/shadowsocks-libev".format(shadowsocks_password))
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
             printProgressBar(16)
             print("ShadowSocks Server set up at {}, on the client install using apt 'apt install shadowsocks-libev'".format(instance_ip))
-            print("\n# ss-local -l 1080 -m aes-256-gcm -s {} -p {} -k {}\n".format(instance_ip, 8388, shadowsocks_password))
+            print("\n# ss-local -l 1080 -m aes-256-gcm -s {} -p {} -k {}\n".format(instance_ip, 443, shadowsocks_password))
         if service == 'proxy':
             try:
                 import strings
