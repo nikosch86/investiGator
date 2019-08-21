@@ -7,14 +7,16 @@ import sys, os, stat, signal, time
 import json, base64, hashlib
 import argparse
 import coloredlogs, logging
+import ipaddress
 
 logger = logging.getLogger(__name__)
 
 argparser = argparse.ArgumentParser()
-argparser.add_argument("--target", "-t", default='digitalocean', help="which provider to use (default: digitalocean)", choices=['digitalocean', 'gcloud'])
+argparser.add_argument("--target", "-t", default='digitalocean', help="which provider to use (default: digitalocean)", choices=['digitalocean', 'gcloud', 'manual'])
 argparser.add_argument("--digitalocean-api-key", help="API key for digitalocean")
 argparser.add_argument("--gcloud-api-key-file", help="API key file for GCloud")
 argparser.add_argument("--gcloud-project-id", help="Project ID for GCloud (default: first available project id)")
+argparser.add_argument("--instance-ip", help="Instance IP if manual mode is used")
 argparser.add_argument("--name", "-n", help="slug name (default: %(default)s)", default='investig')
 argparser.add_argument("--region", "-r", help="region or zone (default: selects random region/zone)", default='random')
 argparser.add_argument("--size", "-s", help="slug size or machine type (default: %(default)s)", default='2gb')
@@ -29,7 +31,7 @@ argparser.add_argument("--wallet", help="wallet to install", action='append', ch
 argparser.add_argument("--force", help="overwrite existing incstances", action='store_true')
 argparser.add_argument("--destroy", help="destroy existing incstances", action='store_true')
 argparser.add_argument("--bare", "-b", help="create bare instance", action='store_true')
-argparser.add_argument("--compose-version", help="compose version (default: %(default)s)", default='1.23.1')
+argparser.add_argument("--compose-version", help="compose version (default: %(default)s)", default='1.24.1')
 argparser.add_argument("--verbose", "-v", action='count', default=0)
 argparser.add_argument("--quiet", "-q", help="only display errors and IP", action='store_true')
 argparser.add_argument("--ssh-private-key", help="SSH key to access instance (default: %(default)s)", default=expanduser("~") + '/.ssh/id_rsa')
@@ -96,6 +98,8 @@ except ImportError:
     cleanup_and_die("please install the gcloud module: 'pip install -U google-api-python-client'")
 
 def write_config(configdict, configfile):
+    for nosave in ["bare", "create_private_key", "destroy", "force", "instance_ip", "name", "quiet", "verbose", "digitalocean_api_key", "gcloud_api_key_file", "gcloud_api_key_file"]:
+        if nosave in configdict: del configdict[nosave]
     if not os.path.exists(os.path.dirname(configfile)):
         os.mkdir(os.path.dirname(configfile))
     with open(configfile, 'w') as configfilefd:
@@ -487,6 +491,15 @@ elif args.target == 'gcloud':
     logger.info("instance with id {} has external IP {}".format(instance['id'], instance_ip))
     printProgressBar(8)
     time.sleep(5)
+elif args.target == 'manual':
+    if not config['instance_ip']:
+        cleanup_and_die("instance IP has to be specified in manual mode")
+    try:
+        instance_ip = ipaddress.ip_address(config['instance_ip']).compressed
+    except ValueError:
+        cleanup_and_die("invalid IP specified \"{}\"".format(config['instance_ip']))
+    logger.info("setting up existing instance on IP {}".format(instance_ip))
+
 
 else:
     cleanup_and_die("no target specified")
@@ -500,7 +513,7 @@ logger.info("connecting to instance via SSH")
 i = 1;
 while True:
     try:
-        ssh.connect(instance_ip, config['ssh_port'], config['user'], None, pKey, None, 45)
+        ssh.connect(instance_ip, config['ssh_port'], config['user'], None, pKey, None, 15)
         break
     except paramiko.ssh_exception.AuthenticationException:
         cleanup_and_die("Authentication failed with given private key, please ensure public was properly set")
@@ -508,10 +521,17 @@ while True:
         logger.debug("connection failed, retrying")
         i += 1
         time.sleep(1)
-    # except socket.timeout:
-    #     logger.debug("timeout connecting, retrying")
-    #     i += 1
-    #     time.sleep(1)
+    except (TimeoutError):
+        logger.debug("timeout connecting, retrying")
+        i += 1
+        time.sleep(1)
+    except Exception as e:
+        if str(e) == 'timed out':
+            logger.debug("timeout connecting, retrying")
+            i += 1
+            time.sleep(1)
+        else:
+            cleanup_and_die("Exception occured while connecting: \"{}\"".format(str(e)))
 
     if i >= config['ssh_connection_tries']:
         cleanup_and_die("unable to connect to {} via SSH within time limit of {} seconds".format(instance_ip, config['ssh_connection_tries']))
