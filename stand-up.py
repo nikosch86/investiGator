@@ -26,7 +26,7 @@ argparser.add_argument("--ssh-port", help="port to use for ssh connection (defau
 argparser.add_argument("--ssh-connection-tries", help="how many times to try to establish ssh connection (default: %(default)s)", default=30, type=int)
 argparser.add_argument("--tool", help="additonal tools to install", action='append')
 argparser.add_argument("--repo", help="additonal repos to install", action='append')
-argparser.add_argument("--service", help="service to install", action='append', choices=['ipsec', 'proxy', 'shadowsocks', 'wireguard'])
+argparser.add_argument("--service", help="service to install", action='append', choices=['ipsec', 'proxy', 'shadowsocks', 'wireguard', 'ssh-pivot'])
 argparser.add_argument("--wallet", help="wallet to install", action='append', choices=['monero'])
 argparser.add_argument("--force", help="overwrite existing incstances", action='store_true')
 argparser.add_argument("--destroy", help="destroy existing incstances", action='store_true')
@@ -129,7 +129,7 @@ else:
 
 config = {**config, **vars(args)}
 
-if config['quiet'] and config['verbose'] > 0:
+if vars(args)['quiet'] and config['verbose'] > 0:
     cleanup_and_die("options quiet and verbose are mutually exclusive")
 
 logger.debug(config)
@@ -145,7 +145,7 @@ if os.path.exists(config['ssh_private_key']):
     except paramiko.ssh_exception.SSHException:
         cleanup_and_die("the private key '{}' does not seem to be an RSA key in PEM and can not be supported (use 'ssh-keygen -t rsa -m pem')".format(config['ssh_private_key']))
 else:
-    if config['create_private_key']:
+    if vars(args)['create_private_key']:
         logger.info('missing private key, creating')
         if not os.path.exists(os.path.dirname(config['ssh_private_key'])):
             os.mkdir(os.path.dirname(config['ssh_private_key']))
@@ -195,7 +195,7 @@ def gcloud_wait(gce_manager, zone, operation):
         time.sleep(1)
 
 def printProgressBar(iteration, total=16, length = 100, fill = '█'):
-    if config['quiet']:
+    if vars(args)['quiet']:
         return
     """
     Call in a loop to create terminal progress bar
@@ -252,7 +252,7 @@ def validate_gcloud():
         for instance in raw_all_instances['items'][key]['instances']:
             if instance['name'] == config['name']:
                 logger.warning('the requested name "{}" is already taken by an instance in the zone {}'.format(config['name'], key))
-                if config['force']:
+                if vars(args)['force']:
                     logger.warning('force option is set, calling delete() on existing instance')
                     try:
                         operation = gce_manager.instances().delete(project=config['gcloud_project_id'], zone=key.replace('zones/', ''), instance=config['name']).execute()
@@ -331,7 +331,7 @@ def validate_digitalocean():
 
     if config['name'] in instances and not config['destroy']:
         logger.warning('the requested name "{}" is already taken'.format(config['name']))
-        if config['force']:
+        if vars(args)['force']:
             raw_instances = do_manager.get_data("droplets/")
             for instance in raw_instances['droplets']:
                 if instance['name'] == config['name']:
@@ -342,7 +342,7 @@ def validate_digitalocean():
         else:
             exit(1)
 
-    if config['destroy']:
+    if vars(args)['destroy']:
         raw_instances = do_manager.get_data("droplets/")
         for instance in raw_instances['droplets']:
             if instance['name'] == config['name']:
@@ -430,7 +430,7 @@ if args.target == 'digitalocean':
 elif args.target == 'gcloud':
     gce_manager = validate_gcloud()
     printProgressBar(5)
-    if config['destroy']:
+    if vars(args)['destroy']:
         # operation = gce_manager.instances().delete(project=config['gcloud_project_id'], zone=config['region'], instance=config['name']).execute()
         # gcloud_wait(gce_manager, operation['name'])
         cleanup_and_die("destroyed instances, aborting")
@@ -539,13 +539,13 @@ while True:
 printProgressBar(9)
 logger.info("setting up system")
 stdin, stdout, stderr = ssh.exec_command("echo LC_ALL=\"en_US.UTF-8\" >> /etc/default/locale && \
-    curl https://get.docker.com | bash")
+    docker -v >/dev/null || curl https://get.docker.com | bash")
 logger.debug("".join(stdout.readlines()))
 if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
 
 printProgressBar(10)
 
-stdin, stdout, stderr = ssh.exec_command("curl -L \"https://github.com/docker/compose/releases/download/{}/docker-compose-Linux-x86_64\" -o /usr/local/bin/docker-compose && \
+stdin, stdout, stderr = ssh.exec_command("docker-compose -v >/dev/null || curl -L \"https://github.com/docker/compose/releases/download/{}/docker-compose-Linux-x86_64\" -o /usr/local/bin/docker-compose && \
     chmod +x /usr/local/bin/docker-compose".format(config['compose_version']))
 logger.debug("".join(stdout.readlines()))
 if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
@@ -553,7 +553,7 @@ if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup comma
 printProgressBar(11)
 
 if not config['bare']:
-    standard_tools="nmap git wpscan exploitdb hashcat hydra gobuster crunch lynx seclists wordlists dirb"
+    standard_tools="nmap git wpscan exploitdb hashcat hydra gobuster crunch lynx seclists wordlists dirb wfuzz"
     standard_repos=['magnumripper/JohnTheRipper', 'erwanlr/Fingerprinter', 'laramies/theHarvester']
     stdin, stdout, stderr = ssh.exec_command("curl -fsSL https://archive.kali.org/archive-key.asc | apt-key add - && \
         echo \"deb http://http.kali.org/kali kali-rolling main non-free contrib\" > /etc/apt/sources.list.d/kali.list && \
@@ -643,6 +643,7 @@ if vars(args)['service']:
             printProgressBar(16)
             print("ShadowSocks Server set up at {}, on the client install using apt 'apt install shadowsocks-libev'".format(instance_ip))
             print("\n# ss-local -l 1080 -m aes-256-gcm -s {} -p {} -k {}\n".format(instance_ip, 443, shadowsocks_password))
+
         if service == 'proxy':
             try:
                 import strings
@@ -659,6 +660,7 @@ if vars(args)['service']:
             printProgressBar(16)
             print("Proxy Server set up at {}, use in proxychains like this:".format(instance_ip))
             print("\nsocks5 {} {} user {}".format(instance_ip, 1080, proxy_password))
+
         if service == 'wireguard':
             stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; add-apt-repository -yu ppa:wireguard/wireguard && apt-get -yq install wireguard")
             logger.debug("".join(stdout.readlines()))
@@ -679,6 +681,19 @@ if vars(args)['service']:
             print("\n####\n\nOn Ubuntu run:\nsudo apt-get -yq install software-properties-common && sudo add-apt-repository -yu ppa:wireguard/wireguard && sudo apt-get -yq install wireguard")
             print("\ncat << 'EOF' | sudo tee /etc/wireguard/wg0.conf\n{}\nEOF".format(wireguard_client_config))
             print("\nsudo wg-quick up wg0")
+
+        if service == 'ssh-pivot':
+            stdin, stdout, stderr = ssh.exec_command("docker run --name {} -d -p8022:22 nikosch86/docker-socks".format("ssh-pivot", 8022))
+            logger.debug("".join(stdout.readlines()))
+            if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+            stdin, stdout, stderr = ssh.exec_command("docker logs {}".format("ssh-pivot"))
+            if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+            stdout = "".join(stdout.readlines())
+            logger.debug(stdout)
+            ssh_pivot_out = stdout
+            printProgressBar(16)
+            print("SSH Pivot Server set up, stdout:\n{}".format(ssh_pivot_out))
+            print("\nSSH socks can be used in proxychains like this:\nsocks5 127.0.0.1 1080")
         #
         # if service == 'openvpn':
 else:
@@ -688,7 +703,7 @@ ssh.close()
 write_config(config, configfile)
 
 
-if config['quiet']:
+if vars(args)['quiet']:
     print("{}".format(instance_ip))
 else:
     print("\n###\n# ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p{} -i {} {}@{}".format(config['ssh_port'], config['ssh_private_key'], config['user'], instance_ip))
