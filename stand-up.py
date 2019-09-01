@@ -683,7 +683,7 @@ if vars(args)['service']:
             print("\nsudo wg-quick up wg0")
 
         if service == 'ssh-pivot':
-            stdin, stdout, stderr = ssh.exec_command("docker run --name {} -d -p8022:22 nikosch86/docker-socks".format("ssh-pivot", 8022))
+            stdin, stdout, stderr = ssh.exec_command("docker run --name {} -d -p{}:22 nikosch86/docker-socks".format("ssh-pivot", 8022))
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
             stdin, stdout, stderr = ssh.exec_command("docker logs {}".format("ssh-pivot"))
