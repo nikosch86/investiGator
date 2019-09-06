@@ -129,7 +129,7 @@ else:
 
 config = {**config, **vars(args)}
 
-if vars(args)['quiet'] and config['verbose'] > 0:
+if vars(args).get('quiet') and config['verbose'] > 0:
     cleanup_and_die("options quiet and verbose are mutually exclusive")
 
 logger.debug(config)
@@ -145,7 +145,7 @@ if os.path.exists(config['ssh_private_key']):
     except paramiko.ssh_exception.SSHException:
         cleanup_and_die("the private key '{}' does not seem to be an RSA key in PEM and can not be supported (use 'ssh-keygen -t rsa -m pem')".format(config['ssh_private_key']))
 else:
-    if vars(args)['create_private_key']:
+    if vars(args).get('create_private_key'):
         logger.info('missing private key, creating')
         if not os.path.exists(os.path.dirname(config['ssh_private_key'])):
             os.mkdir(os.path.dirname(config['ssh_private_key']))
@@ -195,7 +195,7 @@ def gcloud_wait(gce_manager, zone, operation):
         time.sleep(1)
 
 def printProgressBar(iteration, total=16, length = 100, fill = '█'):
-    if vars(args)['quiet']:
+    if vars(args).get('quiet'):
         return
     """
     Call in a loop to create terminal progress bar
@@ -252,7 +252,7 @@ def validate_gcloud():
         for instance in raw_all_instances['items'][key]['instances']:
             if instance['name'] == config['name']:
                 logger.warning('the requested name "{}" is already taken by an instance in the zone {}'.format(config['name'], key))
-                if vars(args)['force']:
+                if vars(args).get('force'):
                     logger.warning('force option is set, calling delete() on existing instance')
                     try:
                         operation = gce_manager.instances().delete(project=config['gcloud_project_id'], zone=key.replace('zones/', ''), instance=config['name']).execute()
@@ -331,7 +331,7 @@ def validate_digitalocean():
 
     if config['name'] in instances and not config['destroy']:
         logger.warning('the requested name "{}" is already taken'.format(config['name']))
-        if vars(args)['force']:
+        if vars(args).get('force'):
             raw_instances = do_manager.get_data("droplets/")
             for instance in raw_instances['droplets']:
                 if instance['name'] == config['name']:
@@ -342,7 +342,7 @@ def validate_digitalocean():
         else:
             exit(1)
 
-    if vars(args)['destroy']:
+    if vars(args).get('destroy'):
         raw_instances = do_manager.get_data("droplets/")
         for instance in raw_instances['droplets']:
             if instance['name'] == config['name']:
@@ -430,7 +430,7 @@ if args.target == 'digitalocean':
 elif args.target == 'gcloud':
     gce_manager = validate_gcloud()
     printProgressBar(5)
-    if vars(args)['destroy']:
+    if vars(args).get('destroy'):
         # operation = gce_manager.instances().delete(project=config['gcloud_project_id'], zone=config['region'], instance=config['name']).execute()
         # gcloud_wait(gce_manager, operation['name'])
         cleanup_and_die("destroyed instances, aborting")
@@ -583,7 +583,7 @@ else:
     logger.debug("not installing standard tools and repos, bare instance")
     config['bare'] = False
 
-if vars(args)['tool']:
+if vars(args).get('tool'):
     for tool in config['tool']:
         logger.info('installing additional tool "{}"'.format(tool))
         stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install {}".format(tool))
@@ -591,7 +591,7 @@ if vars(args)['tool']:
         if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
     config['tool'] = False
 
-if vars(args)['repo']:
+if vars(args).get('repo'):
     for repo in config['repo']:
         logger.info('installing additional repo "{}"'.format(repo))
         stdin, stdout, stderr = ssh.exec_command("git clone https://github.com/{}.git".format(repo))
@@ -601,7 +601,7 @@ if vars(args)['repo']:
 
 printProgressBar(15)
 
-if vars(args)['wallet']:
+if vars(args).get('wallet'):
     for item in config['wallet']:
         logger.info('installing wallet {}'.format(item))
 
@@ -612,7 +612,7 @@ if vars(args)['wallet']:
             printProgressBar(16)
             print("monero wallet installed, to use with external node and restore from keys, run:\n## ATTENTION: using a remote node might compromise your privacy!\ncd ~/monero-x86_64-linux-gnu; ./monero-wallet-cli --daemon-address node.moneroworld.com:18089 --generate-from-keys restored-wallet")
 
-if vars(args)['service']:
+if vars(args).get('service'):
     for service in config['service']:
         logger.info('installing service {}'.format(service))
 
@@ -686,7 +686,7 @@ if vars(args)['service']:
             stdin, stdout, stderr = ssh.exec_command("docker run --name {} -d -p8022:22 nikosch86/docker-socks".format("ssh-pivot", 8022))
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
-            stdin, stdout, stderr = ssh.exec_command("docker logs {}".format("ssh-pivot"))
+            stdin, stdout, stderr = ssh.exec_command("docker logs {} 2>&1".format("ssh-pivot"))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
             stdout = "".join(stdout.readlines())
             logger.debug(stdout)
@@ -703,7 +703,7 @@ ssh.close()
 write_config(config, configfile)
 
 
-if vars(args)['quiet']:
+if vars(args).get('quiet'):
     print("{}".format(instance_ip))
 else:
     print("\n###\n# ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p{} -i {} {}@{}".format(config['ssh_port'], config['ssh_private_key'], config['user'], instance_ip))
