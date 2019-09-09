@@ -566,7 +566,7 @@ if not config['bare']:
     printProgressBar(12)
 
     logger.info('installing tools "{}"'.format(standard_tools))
-    stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install {} zlib1g-dev ruby-dev".format(standard_tools))
+    stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install {} zlib1g-dev ruby-dev python-pip".format(standard_tools))
     logger.debug("".join(stdout.readlines()))
     if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
 
