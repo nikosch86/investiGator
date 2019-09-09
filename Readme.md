@@ -57,8 +57,7 @@ optional arguments:
   --region REGION, -r REGION
                         region or zone (default: selects random region/zone)
   --size SIZE, -s SIZE  slug size or machine type (default: 2gb)
-  --image IMAGE, -i IMAGE
-                        slug image (default: ubuntu-16-04-x64)
+  --image IMAGE         slug image (default: ubuntu-16-04-x64)
   --user USER, -u USER  username to use for ssh connection (default: root)
   --ssh-port SSH_PORT   port to use for ssh connection (default: 22)
   --ssh-connection-tries SSH_CONNECTION_TRIES
@@ -76,7 +75,7 @@ optional arguments:
                         compose version (default: 1.24.1)
   --verbose, -v
   --quiet, -q           only display errors and IP
-  --ssh-private-key SSH_PRIVATE_KEY
+  --ssh-private-key SSH_PRIVATE_KEY, -i SSH_PRIVATE_KEY
                         SSH key to access instance (default:
                         /Users/niko/.ssh/id_rsa)
   --create-private-key  create ssh key to access instance

@@ -20,7 +20,7 @@ argparser.add_argument("--instance-ip", help="Instance IP if manual mode is used
 argparser.add_argument("--name", "-n", help="slug name (default: %(default)s)", default='investig')
 argparser.add_argument("--region", "-r", help="region or zone (default: selects random region/zone)", default='random')
 argparser.add_argument("--size", "-s", help="slug size or machine type (default: %(default)s)", default='2gb')
-argparser.add_argument("--image", "-i", help="slug image (default: %(default)s)", default='ubuntu-16-04-x64')
+argparser.add_argument("--image", help="slug image (default: %(default)s)", default='ubuntu-16-04-x64')
 argparser.add_argument("--user", "-u", help="username to use for ssh connection (default: %(default)s)", default='root')
 argparser.add_argument("--ssh-port", help="port to use for ssh connection (default: %(default)s)", default=22, type=int)
 argparser.add_argument("--ssh-connection-tries", help="how many times to try to establish ssh connection (default: %(default)s)", default=30, type=int)
@@ -34,7 +34,7 @@ argparser.add_argument("--bare", "-b", help="create bare instance", action='stor
 argparser.add_argument("--compose-version", help="compose version (default: %(default)s)", default='1.24.1')
 argparser.add_argument("--verbose", "-v", action='count', default=0)
 argparser.add_argument("--quiet", "-q", help="only display errors and IP", action='store_true')
-argparser.add_argument("--ssh-private-key", help="SSH key to access instance (default: %(default)s)", default=expanduser("~") + '/.ssh/id_rsa')
+argparser.add_argument("--ssh-private-key", "-i", help="SSH key to access instance (default: %(default)s)", default=expanduser("~") + '/.ssh/id_rsa')
 argparser.add_argument("--create-private-key", help="create ssh key to access instance", action='store_true')
 args = argparser.parse_args()
 
