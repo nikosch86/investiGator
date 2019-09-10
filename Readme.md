@@ -33,8 +33,8 @@ usage: stand-up.py [-h] [--target {digitalocean,gcloud,manual}]
                    [--instance-ip INSTANCE_IP] [--name NAME] [--region REGION]
                    [--size SIZE] [--image IMAGE] [--user USER]
                    [--ssh-port SSH_PORT]
-                   [--ssh-connection-tries SSH_CONNECTION_TRIES] [--tool TOOL]
-                   [--repo REPO]
+                   [--ssh-connection-tries SSH_CONNECTION_TRIES]
+                   [--ssh-wait-for-auth] [--tool TOOL] [--repo REPO]
                    [--service {ipsec,proxy,shadowsocks,wireguard,ssh-pivot}]
                    [--wallet {monero}] [--force] [--destroy] [--bare]
                    [--compose-version COMPOSE_VERSION] [--verbose] [--quiet]
@@ -63,6 +63,8 @@ optional arguments:
   --ssh-connection-tries SSH_CONNECTION_TRIES
                         how many times to try to establish ssh connection
                         (default: 30)
+  --ssh-wait-for-auth   retry in case of failed authentication upon
+                        establishing ssh session
   --tool TOOL           additonal tools to install
   --repo REPO           additonal repos to install
   --service {ipsec,proxy,shadowsocks,wireguard,ssh-pivot}

@@ -24,6 +24,7 @@ argparser.add_argument("--image", help="slug image (default: %(default)s)", defa
 argparser.add_argument("--user", "-u", help="username to use for ssh connection (default: %(default)s)", default='root')
 argparser.add_argument("--ssh-port", help="port to use for ssh connection (default: %(default)s)", default=22, type=int)
 argparser.add_argument("--ssh-connection-tries", help="how many times to try to establish ssh connection (default: %(default)s)", default=30, type=int)
+argparser.add_argument("--ssh-wait-for-auth", help="retry in case of failed authentication upon establishing ssh session", action='store_true')
 argparser.add_argument("--tool", help="additonal tools to install", action='append')
 argparser.add_argument("--repo", help="additonal repos to install", action='append')
 argparser.add_argument("--service", help="service to install", action='append', choices=['ipsec', 'proxy', 'shadowsocks', 'wireguard', 'ssh-pivot'])
@@ -98,7 +99,7 @@ except ImportError:
     cleanup_and_die("please install the gcloud module: 'pip install -U google-api-python-client'")
 
 def write_config(configdict, configfile):
-    for nosave in ["bare", "create_private_key", "destroy", "force", "instance_ip", "name", "quiet", "verbose", "digitalocean_api_key", "gcloud_api_key_file", "gcloud_api_key_file"]:
+    for nosave in ["bare", "create_private_key", "destroy", "force", "instance_ip", "name", "quiet", "verbose", "digitalocean_api_key", "gcloud_api_key_file", "gcloud_api_key_file", "ssh_wait_for_auth"]:
         if nosave in configdict: del configdict[nosave]
     if not os.path.exists(os.path.dirname(configfile)):
         os.mkdir(os.path.dirname(configfile))
@@ -516,7 +517,12 @@ while True:
         ssh.connect(instance_ip, config['ssh_port'], config['user'], None, pKey, None, 15)
         break
     except paramiko.ssh_exception.AuthenticationException:
-        cleanup_and_die("Authentication failed with given private key, please ensure public was properly set")
+        if vars(args).get('ssh_wait_for_auth'):
+            logger.debug("authentication failed with given private key, retrying")
+            i += 1
+            time.sleep(1)
+        else:
+            cleanup_and_die("Authentication failed with given private key, please ensure public was properly set")
     except (paramiko.ssh_exception.NoValidConnectionsError):
         logger.debug("connection failed, retrying")
         i += 1
