@@ -545,7 +545,7 @@ while True:
 printProgressBar(9)
 logger.info("setting up system")
 stdin, stdout, stderr = ssh.exec_command("echo LC_ALL=\"en_US.UTF-8\" >> /etc/default/locale && \
-    docker -v >/dev/null || curl https://get.docker.com | bash")
+    docker -v >/dev/null 2>&1 || curl https://get.docker.com | bash")
 logger.debug("".join(stdout.readlines()))
 if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
 
