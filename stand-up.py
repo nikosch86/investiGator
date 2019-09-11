@@ -12,10 +12,13 @@ import ipaddress
 logger = logging.getLogger(__name__)
 
 argparser = argparse.ArgumentParser()
-argparser.add_argument("--target", "-t", default='digitalocean', help="which provider to use (default: digitalocean)", choices=['digitalocean', 'gcloud', 'manual'])
+argparser.add_argument("--target", "-t", default='digitalocean', help="which provider to use (default: digitalocean)", choices=['digitalocean', 'gcloud', 'sporestack', 'manual'])
 argparser.add_argument("--digitalocean-api-key", help="API key for digitalocean")
 argparser.add_argument("--gcloud-api-key-file", help="API key file for GCloud")
 argparser.add_argument("--gcloud-project-id", help="Project ID for GCloud (default: first available project id)")
+argparser.add_argument("--sporestack-days", help="How many days to prepay sporestack instance", default=1, type=int)
+argparser.add_argument("--sporestack-refund-address", help="Refund Address for sporestack instances that have been terminated early", default=None)
+argparser.add_argument("--sporestack-currency", help="Which currency to use for payment", default='btc', choices=['btc', 'bch', 'bsv'])
 argparser.add_argument("--instance-ip", help="Instance IP if manual mode is used")
 argparser.add_argument("--name", "-n", help="slug name (default: %(default)s)", default='investig')
 argparser.add_argument("--region", "-r", help="region or zone (default: selects random region/zone)", default='random')
@@ -72,6 +75,14 @@ def cleanup_and_die(msg):
             gcloud_wait(gce_manager, config['region'], operation['name'])
         except NameError:
             logger.debug('no instance has been created yet')
+    elif args.target == 'sporestack':
+        try:
+            instance_dict
+            machine_info = sporestackv2.client.get_machine_info(config['name'])
+            logger.critical("calling delete() on instance id {}".format(machine_info['machine_id']))
+            sporestackv2.client.delete(config['name'], sporestackv2.client.API_ENDPOINT)
+        except NameError:
+            logger.debug('no instance has been created yet')
     try:
         addKey
         logger.critical("calling destroy() on added ssh key object fingerprint {} and name {}".format(addKey.fingerprint, addKey.name))
@@ -93,13 +104,18 @@ except ImportError:
     cleanup_and_die("please install the digitalocean module: 'pip install -U python-digitalocean'")
 
 try:
+    import sporestackv2
+except ImportError:
+    cleanup_and_die("please install the sporestackv2 module: 'pip install -U sporestack'")
+
+try:
     from google.oauth2 import service_account
     import googleapiclient.discovery
 except ImportError:
     cleanup_and_die("please install the gcloud module: 'pip install -U google-api-python-client'")
 
 def write_config(configdict, configfile):
-    for nosave in ["bare", "create_private_key", "destroy", "force", "instance_ip", "name", "quiet", "verbose", "digitalocean_api_key", "gcloud_api_key_file", "gcloud_api_key_file", "ssh_wait_for_auth"]:
+    for nosave in ["bare", "create_private_key", "destroy", "force", "instance_ip", "name", "quiet", "verbose", "digitalocean_api_key", "gcloud_api_key_file", "gcloud_api_key_file", "ssh_wait_for_auth", "sporestack_refund_address"]:
         if nosave in configdict: del configdict[nosave]
     if not os.path.exists(os.path.dirname(configfile)):
         os.mkdir(os.path.dirname(configfile))
@@ -177,6 +193,20 @@ if config['target'] == 'gcloud':
     if config['size'] == argparser.get_default('size'):
         logger.debug('changing default size to "g1-small" to work for gcloud')
         config['size'] = 'g1-small'
+
+if config['target'] == 'sporestack':
+    sporestack_regions = ['random', 'sfo2', 'nyc1', 'nyc3', 'tor1', 'lon1', 'ams3', 'fra1', 'sgp1', 'blr1']
+    if vars(args).get('region'):
+        if config['region'] not in sporestack_regions:
+            cleanup_and_die('the requested region "{}" is not amongst the available regions\n{}'.format(config['region'], sporestack_regions))
+    if config['region'] == 'random':
+        config['region']  = None
+
+    if vars(args).get('image'):
+        logger.info('image was set on the cli, but with sporestack we only support ubuntu 16.04')
+
+    if vars(args).get('size'):
+        logger.info('size was set on the cli, but with sporestack we only support the 1GB default size')
 
 logger.info("validating settings")
 
@@ -500,7 +530,57 @@ elif args.target == 'manual':
     except ValueError:
         cleanup_and_die("invalid IP specified \"{}\"".format(config['instance_ip']))
     logger.info("setting up existing instance on IP {}".format(instance_ip))
+elif args.target == 'sporestack':
+    if vars(args).get('destroy'):
+        if sporestackv2.client.machine_exists(config['name']):
+            machine_info = sporestackv2.client.get_machine_info(config['name'])
+            sporestackv2.client.delete(config['name'], sporestackv2.client.API_ENDPOINT)
+            cleanup_and_die("destroyed instance id {}, aborting".format(machine_info['machine_id']))
+        else:
+            cleanup_and_die("no instance with name {} found, aborting".format(config['name']))
 
+    if sporestackv2.client.machine_exists(config['name']):
+        machine_info = sporestackv2.client.get_machine_info(config['name'])
+        logger.warning('the requested name "{}" is already taken'.format(config['name']))
+        if vars(args).get('force'):
+            sporestackv2.client.delete(config['name'], sporestackv2.client.API_ENDPOINT)
+            logger.warning('force option is set, calling destroy() on existing instance id {}'.format(machine_info['machine_id']))
+        else:
+            exit(1)
+
+    try:
+        instance_dict = sporestackv2.client.launch(config['name'],
+            config['sporestack_days'], # days,
+            5, # disk,
+            1,   # memory,
+            '/32',  # ipv4,
+            '/128',   # ipv6,
+            1,   # bandwidth,
+            'digitalocean.sporestack.com',   # host=None,
+            sporestackv2.client.API_ENDPOINT,   # api_endpoint=API_ENDPOINT,
+            config['sporestack_refund_address'],   # refund_address=None,
+            1,   # cores=1,
+            config['sporestack_currency'],   # currency='bch',
+            config['region'],   # region=None,
+            False,   # managed=False,
+            None,   # organization=None,
+            None,   # override_code=None,
+            None,   # settlement_token=None,
+            None,   # qemuopts=None,
+            False,   # hostaccess=False,
+            None,   # ipxescript=None,
+            False,   # ipxescript_stdin=False,
+            None,   # ipxescript_file=None,
+            'ubuntu-16-04',   # operating_system=None,
+            'ssh-rsa '+pKey.get_base64(),   # ssh_key=None,
+            None,   # ssh_key_file=None,
+            None, # walkingliberty_wallet=None,
+            False,   # want_topup=False,
+            False,   # save=True):
+        )
+        instance_ip = ipaddress.ip_address(instance_dict['network_interfaces'][0]['ipv4']).compressed
+    except Exception as msg:
+        cleanup_and_die('something went wrong while talking to the sporestack API: "{}"'.format(msg))
 
 else:
     cleanup_and_die("no target specified")

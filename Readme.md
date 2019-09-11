@@ -2,6 +2,12 @@
 
 script to create droplet / instance on digitalocean or google cloud or setup a manually deployed machine  
 
+with sporestack it is possible to prepay a digitalocean instance using cryptocurrency,  
+the refund address can be used to get some of the payment back in case of an error on sporestacks side,
+seemingly there are no refunds upon early termination of a prepaid instance.    
+sporestack supports the standard digitalocean regions, but currently there is no nice way to specify the instance size or image via the API,  
+so these values are fixed to the sporestack defaults for now (1GB, 1 Core, ubuntu 16.04)  
+
 the minimum configuration (called "bare") comes with docker and docker-compose preinstalled.  
 By default the script makes use of the kali repository to install a bunch of useful tools:  
 `nmap git wpscan exploitdb hashcat hydra gobuster crunch lynx seclists wordlists dirb wfuzz`  
@@ -26,10 +32,13 @@ supports installing wallets, for now only monero is supported.
 
 ## help
 ```
-usage: stand-up.py [-h] [--target {digitalocean,gcloud,manual}]
+usage: stand-up.py [-h] [--target {digitalocean,gcloud,sporestack,manual}]
                    [--digitalocean-api-key DIGITALOCEAN_API_KEY]
                    [--gcloud-api-key-file GCLOUD_API_KEY_FILE]
                    [--gcloud-project-id GCLOUD_PROJECT_ID]
+                   [--sporestack-days SPORESTACK_DAYS]
+                   [--sporestack-refund-address SPORESTACK_REFUND_ADDRESS]
+                   [--sporestack-currency {btc,bch,bsv}]
                    [--instance-ip INSTANCE_IP] [--name NAME] [--region REGION]
                    [--size SIZE] [--image IMAGE] [--user USER]
                    [--ssh-port SSH_PORT]
@@ -42,7 +51,7 @@ usage: stand-up.py [-h] [--target {digitalocean,gcloud,manual}]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --target {digitalocean,gcloud,manual}, -t {digitalocean,gcloud,manual}
+  --target {digitalocean,gcloud,sporestack,manual}, -t {digitalocean,gcloud,sporestack,manual}
                         which provider to use (default: digitalocean)
   --digitalocean-api-key DIGITALOCEAN_API_KEY
                         API key for digitalocean
@@ -51,6 +60,13 @@ optional arguments:
   --gcloud-project-id GCLOUD_PROJECT_ID
                         Project ID for GCloud (default: first available
                         project id)
+  --sporestack-days SPORESTACK_DAYS
+                        How many days to prepay sporestack instance
+  --sporestack-refund-address SPORESTACK_REFUND_ADDRESS
+                        Refund Address for sporestack instances that have been
+                        terminated early
+  --sporestack-currency {btc,bch,bsv}
+                        Which currency to use for payment
   --instance-ip INSTANCE_IP
                         Instance IP if manual mode is used
   --name NAME, -n NAME  slug name (default: investig)

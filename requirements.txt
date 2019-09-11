@@ -3,3 +3,4 @@ paramiko>=2.6.0
 python-digitalocean
 google-api-python-client
 pprint
+sporestack
