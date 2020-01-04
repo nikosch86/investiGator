@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os.path
+import os.path, socket
 from os.path import expanduser
 from pprint import pprint
 import secrets
@@ -526,7 +526,7 @@ elif args.target == 'manual':
     if not config['instance_ip']:
         cleanup_and_die("instance IP has to be specified in manual mode")
     try:
-        instance_ip = ipaddress.ip_address(config['instance_ip']).compressed
+        instance_ip = ipaddress.ip_address(socket.gethostbyname(config['instance_ip'])).compressed
     except ValueError:
         cleanup_and_die("invalid IP specified \"{}\"".format(config['instance_ip']))
     logger.info("setting up existing instance on IP {}".format(instance_ip))
@@ -632,7 +632,7 @@ if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup comma
 printProgressBar(10)
 
 stdin, stdout, stderr = ssh.exec_command("docker-compose -v >/dev/null || curl -L \"https://github.com/docker/compose/releases/download/{}/docker-compose-Linux-x86_64\" -o /usr/local/bin/docker-compose && \
-    chmod +x /usr/local/bin/docker-compose".format(config['compose_version']))
+    chmod +x /usr/local/bin/docker-compose && echo \"alias dc='docker-compose'\" >> ~/.bash_aliases".format(config['compose_version']))
 logger.debug("".join(stdout.readlines()))
 if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
 
