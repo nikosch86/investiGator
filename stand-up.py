@@ -35,7 +35,7 @@ argparser.add_argument("--wallet", help="wallet to install", action='append', ch
 argparser.add_argument("--force", help="overwrite existing incstances", action='store_true')
 argparser.add_argument("--destroy", help="destroy existing incstances", action='store_true')
 argparser.add_argument("--bare", "-b", help="create bare instance", action='store_true')
-argparser.add_argument("--compose-version", help="compose version (default: %(default)s)", default='1.24.1')
+argparser.add_argument("--compose-version", help="compose version (default: %(default)s)", default='1.25.0')
 argparser.add_argument("--verbose", "-v", action='count', default=0)
 argparser.add_argument("--quiet", "-q", help="only display errors and IP", action='store_true')
 argparser.add_argument("--ssh-private-key", "-i", help="SSH key to access instance (default: %(default)s)", default=expanduser("~") + '/.ssh/id_rsa')
@@ -447,7 +447,7 @@ if args.target == 'digitalocean':
         action.load()
     action.wait()
     droplet.load()
-    if droplet.status != 'active':
+    if droplet.status != 'active' and droplet.status != 'new':
         cleanup_and_die('something went wrong creating the instance, the status is "{}"'.format(droplet.status))
     instance_ip = droplet.ip_address
     logger.info("instance with id {} has external IP {}".format(droplet.id, instance_ip))
@@ -632,7 +632,8 @@ if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup comma
 printProgressBar(10)
 
 stdin, stdout, stderr = ssh.exec_command("docker-compose -v >/dev/null || curl -L \"https://github.com/docker/compose/releases/download/{}/docker-compose-Linux-x86_64\" -o /usr/local/bin/docker-compose && \
-    chmod +x /usr/local/bin/docker-compose && echo \"alias dc='docker-compose'\" >> ~/.bash_aliases".format(config['compose_version']))
+    chmod +x /usr/local/bin/docker-compose && echo \"alias dc='docker-compose'\" >> ~/.bash_aliases && \
+    echo \"set expandtab\nset shiftwidth=2\nset softtabstop=2\nset background=dark\nsyntax on\" >> ~/.vimrc".format(config['compose_version']))
 logger.debug("".join(stdout.readlines()))
 if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
 
