@@ -178,7 +178,7 @@ else:
 if os.getenv('DIGITALOCEAN_API_KEY', False) and not args.digitalocean_api_key:
     logger.info('using digitalocean api key from environment')
     cloudkeys['digitalocean'] = os.getenv('DIGITALOCEAN_API_KEY', False)
-elif args.digitalocean_api_key:
+elif vars(args).get('digitalocean_api_key'):
     logger.debug("using digitalocean api key from arguments")
     cloudkeys['digitalocean'] = args.digitalocean_api_key
 
