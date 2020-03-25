@@ -456,6 +456,7 @@ if args.target == 'digitalocean':
         addKey
         logger.critical("calling destroy() on added ssh key object fingerprint {} and name {}".format(addKey.fingerprint, addKey.name))
         addKey.destroy()
+        del addKey
     except NameError:
         pass
 elif args.target == 'gcloud':
@@ -654,9 +655,15 @@ if not config['bare']:
     printProgressBar(12)
 
     logger.info('installing tools "{}"'.format(standard_tools))
-    stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install {} zlib1g-dev ruby-dev python-pip".format(standard_tools))
+    stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install {}".format("zlib1g-dev ruby-dev python-pip"))
     logger.debug("".join(stdout.readlines()))
     if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+
+    for tool in standard_tools.split():
+        logger.info('installing "{}"'.format(tool))
+        stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install {}".format(tool))
+        logger.debug("".join(stdout.readlines()))
+        if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
 
     printProgressBar(13)
 
