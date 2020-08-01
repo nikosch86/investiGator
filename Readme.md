@@ -3,8 +3,6 @@
 script to create droplet / instance on digitalocean or google cloud or setup a manually deployed machine  
 
 with sporestack it is possible to prepay a digitalocean instance using cryptocurrency,  
-the refund address can be used to get some of the payment back in case of an error on sporestacks side,
-seemingly there are no refunds upon early termination of a prepaid instance.    
 sporestack supports the standard digitalocean regions, but currently there is no nice way to specify the instance size or image via the API,  
 so these values are fixed to the sporestack defaults for now (1GB, 1 Core, ubuntu 16.04)  
 
@@ -33,7 +31,7 @@ supports installing wallets, for now only monero is supported.
 ## help
 ```
 usage: stand-up.py [-h] [--target {digitalocean,gcloud,sporestack,manual}] [--digitalocean-api-key DIGITALOCEAN_API_KEY] [--gcloud-api-key-file GCLOUD_API_KEY_FILE]
-                   [--gcloud-project-id GCLOUD_PROJECT_ID] [--sporestack-days SPORESTACK_DAYS] [--sporestack-refund-address SPORESTACK_REFUND_ADDRESS] [--sporestack-currency {btc,bch,bsv}]
+                   [--gcloud-project-id GCLOUD_PROJECT_ID] [--sporestack-days SPORESTACK_DAYS] [--sporestack-currency {btc,bch,bsv}]
                    [--instance-ip INSTANCE_IP] [--name NAME] [--region REGION] [--size SIZE] [--image IMAGE] [--user USER] [--ssh-port SSH_PORT] [--ssh-connection-tries SSH_CONNECTION_TRIES]
                    [--ssh-wait-for-auth] [--tool TOOL] [--repo REPO] [--service {ipsec,proxy,shadowsocks,wireguard,ssh-pivot}] [--wallet {monero}] [--force] [--destroy] [--bare]
                    [--compose-version COMPOSE_VERSION] [--verbose] [--quiet] [--ssh-private-key SSH_PRIVATE_KEY] [--create-private-key]
@@ -50,8 +48,6 @@ optional arguments:
                         Project ID for GCloud (default: first available project id)
   --sporestack-days SPORESTACK_DAYS
                         How many days to prepay sporestack instance
-  --sporestack-refund-address SPORESTACK_REFUND_ADDRESS
-                        Refund Address for sporestack instances that have been terminated early
   --sporestack-currency {btc,bch,bsv}
                         Which currency to use for payment
   --instance-ip INSTANCE_IP
