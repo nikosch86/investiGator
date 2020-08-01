@@ -17,7 +17,6 @@ argparser.add_argument("--digitalocean-api-key", help="API key for digitalocean"
 argparser.add_argument("--gcloud-api-key-file", help="API key file for GCloud")
 argparser.add_argument("--gcloud-project-id", help="Project ID for GCloud (default: first available project id)")
 argparser.add_argument("--sporestack-days", help="How many days to prepay sporestack instance", default=1, type=int)
-argparser.add_argument("--sporestack-refund-address", help="Refund Address for sporestack instances that have been terminated early", default=None)
 argparser.add_argument("--sporestack-currency", help="Which currency to use for payment", default='btc', choices=['btc', 'bch', 'bsv', 'xmr'])
 argparser.add_argument("--instance-ip", help="Instance IP if manual mode is used")
 argparser.add_argument("--name", "-n", help="slug name (default: %(default)s)", default='investig')
@@ -115,7 +114,7 @@ except ImportError:
     cleanup_and_die("please install the gcloud module: 'pip install -U google-api-python-client'")
 
 def write_config(configdict, configfile):
-    for nosave in ["bare", "create_private_key", "destroy", "force", "instance_ip", "name", "quiet", "verbose", "digitalocean_api_key", "gcloud_api_key_file", "gcloud_api_key_file", "ssh_wait_for_auth", "sporestack_refund_address"]:
+    for nosave in ["bare", "create_private_key", "destroy", "force", "instance_ip", "name", "quiet", "verbose", "digitalocean_api_key", "gcloud_api_key_file", "gcloud_api_key_file", "ssh_wait_for_auth"]:
         if nosave in configdict: del configdict[nosave]
     if not os.path.exists(os.path.dirname(configfile)):
         os.mkdir(os.path.dirname(configfile))
@@ -559,7 +558,6 @@ elif args.target == 'sporestack':
             1,   # bandwidth,
             'digitalocean.sporestack.com',   # host=None,
             sporestackv2.client.API_ENDPOINT,   # api_endpoint=API_ENDPOINT,
-            config['sporestack_refund_address'],   # refund_address=None,
             1,   # cores=1,
             config['sporestack_currency'],   # currency='bch',
             config['region'],   # region=None,
