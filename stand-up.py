@@ -35,6 +35,7 @@ argparser.add_argument("--wallet", help="wallet to install", action='append', ch
 argparser.add_argument("--force", help="overwrite existing incstances", action='store_true')
 argparser.add_argument("--destroy", help="destroy existing incstances", action='store_true')
 argparser.add_argument("--bare", "-b", help="create bare instance", action='store_true')
+argparser.add_argument("--no-kali", help="do not bootstrap kali", action='store_true')
 argparser.add_argument("--compose-version", help="compose version (default: %(default)s)", default='1.25.0')
 argparser.add_argument("--verbose", "-v", action='count', default=0)
 argparser.add_argument("--quiet", "-q", help="only display errors and IP", action='store_true')
@@ -115,7 +116,7 @@ except ImportError:
     cleanup_and_die("please install the gcloud module: 'pip install -U google-api-python-client'")
 
 def write_config(configdict, configfile):
-    for nosave in ["bare", "create_private_key", "destroy", "force", "instance_ip", "name", "quiet", "verbose", "digitalocean_api_key", "gcloud_api_key_file", "gcloud_api_key_file", "ssh_wait_for_auth", "sporestack_refund_address"]:
+    for nosave in ["bare", "no_kali", "create_private_key", "destroy", "force", "instance_ip", "name", "quiet", "verbose", "digitalocean_api_key", "gcloud_api_key_file", "gcloud_api_key_file", "ssh_wait_for_auth", "sporestack_refund_address"]:
         if nosave in configdict: del configdict[nosave]
     if not os.path.exists(os.path.dirname(configfile)):
         os.mkdir(os.path.dirname(configfile))
@@ -131,6 +132,10 @@ def keyToFingerprint(publicKey):
     key = base64.b64decode(publicKey.strip().encode('ascii'))
     fp_plain = hashlib.md5(key).hexdigest()
     return ':'.join(a+b for a,b in zip(fp_plain[::2], fp_plain[1::2]))
+
+if vars(args).get('no_kali') and not vars(args).get('bare'):
+    logger.critical("if instance is requested as no-kali, default tools can not be installed, enabling bare mode")
+    args.bare = True
 
 if os.path.exists(configfile):
     config = read_config(configfile)
@@ -225,7 +230,7 @@ def gcloud_wait(gce_manager, zone, operation):
         iteration += 1
         time.sleep(1)
 
-def printProgressBar(iteration, total=16, length = 100, fill = '█'):
+def printProgressBar(iteration, total=24, length = 100, fill = '█'):
     if vars(args).get('quiet'):
         return
     """
@@ -641,9 +646,8 @@ if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup comma
 
 printProgressBar(11)
 
-if not config['bare']:
-    standard_tools="nmap git wpscan exploitdb hashcat hydra gobuster crunch lynx seclists wordlists dirb wfuzz"
-    standard_repos=['magnumripper/JohnTheRipper', 'erwanlr/Fingerprinter', 'laramies/theHarvester']
+if not config['no_kali']:
+    logger.info('bootstrapping kali')
     stdin, stdout, stderr = ssh.exec_command("curl -fsSL https://archive.kali.org/archive-key.asc | apt-key add - && \
         echo \"deb http://http.kali.org/kali kali-rolling main non-free contrib\" > /etc/apt/sources.list.d/kali.list && \
         echo \"deb-src http://http.kali.org/kali kali-rolling main non-free contrib\" >> /etc/apt/sources.list.d/kali.list && \
@@ -651,8 +655,16 @@ if not config['bare']:
         apt-get -o Dpkg::Options::=\"--force-overwrite\" -yq install console-setup-linux")
     logger.debug("".join(stdout.readlines()))
     if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
-
     printProgressBar(12)
+else:
+    logger.debug("not bootstrapping kali")
+    config['no_kali'] = False
+
+if not config['bare']:
+    standard_tools="nmap git wpscan exploitdb hashcat hydra gobuster crunch lynx seclists wordlists dirb wfuzz"
+    standard_repos=['magnumripper/JohnTheRipper', 'erwanlr/Fingerprinter', 'laramies/theHarvester']
+
+    printProgressBar(13)
 
     logger.info('installing tools "{}"'.format(standard_tools))
     stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install {}".format("zlib1g-dev ruby-dev python-pip"))
@@ -665,7 +677,7 @@ if not config['bare']:
         logger.debug("".join(stdout.readlines()))
         if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
 
-    printProgressBar(13)
+    printProgressBar(14)
 
     for repo in standard_repos:
         logger.info('installing repo "{}"'.format(repo))
@@ -673,7 +685,7 @@ if not config['bare']:
         logger.debug("".join(stdout.readlines()))
         if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
 
-    printProgressBar(14)
+    printProgressBar(15)
 else:
     logger.debug("not installing standard tools and repos, bare instance")
     config['bare'] = False
@@ -686,6 +698,8 @@ if vars(args).get('tool'):
         if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
     config['tool'] = False
 
+printProgressBar(16)
+
 if vars(args).get('repo'):
     for repo in config['repo']:
         logger.info('installing additional repo "{}"'.format(repo))
@@ -694,7 +708,7 @@ if vars(args).get('repo'):
         if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
     config['repo'] = False
 
-printProgressBar(15)
+printProgressBar(17)
 
 if vars(args).get('wallet'):
     for item in config['wallet']:
@@ -704,7 +718,7 @@ if vars(args).get('wallet'):
             stdin, stdout, stderr = ssh.exec_command("curl -L -o linux64.tar.bz2 https://downloads.getmonero.org/cli/linux64 && tar xf linux64.tar.bz2")
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
-            printProgressBar(16)
+            printProgressBar(18)
             print("monero wallet installed, to use with external node and restore from keys, run:\n## ATTENTION: using a remote node might compromise your privacy!\ncd ~/monero-x86_64-linux-gnu; ./monero-wallet-cli --daemon-address node.moneroworld.com:18089 --generate-from-keys restored-wallet")
 
 if vars(args).get('service'):
@@ -719,7 +733,7 @@ if vars(args).get('service'):
             stdin, stdout, stderr = ssh.exec_command("cd /root/vpn && /usr/local/bin/docker-compose -f {} up -d".format(ipsec_vpn_compose))
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
-            printProgressBar(16)
+            printProgressBar(19)
             print("IPSec VPN Server set up at "+instance_ip)
 
         if service == 'shadowsocks':
@@ -735,7 +749,7 @@ if vars(args).get('service'):
             stdin, stdout, stderr = ssh.exec_command("docker run -e PASSWORD={} -e METHOD=aes-256-gcm -p443:8388 -p443:8388/udp -d shadowsocks/shadowsocks-libev".format(shadowsocks_password))
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
-            printProgressBar(16)
+            printProgressBar(20)
             print("ShadowSocks Server set up at {}, on the client install using apt 'apt install shadowsocks-libev'".format(instance_ip))
             print("\n# ss-local -l 1080 -m aes-256-gcm -s {} -p {} -k {}\n".format(instance_ip, 443, shadowsocks_password))
 
@@ -752,7 +766,7 @@ if vars(args).get('service'):
             stdin, stdout, stderr = ssh.exec_command("docker run -e PROXY_PASSWORD={} -e PROXY_USER=user -p{}:{} -d serjs/go-socks5-proxy".format(proxy_password, 1080, 1080))
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
-            printProgressBar(16)
+            printProgressBar(21)
             print("Proxy Server set up at {}, use in proxychains like this:".format(instance_ip))
             print("\nsocks5 {} {} user {}".format(instance_ip, 1080, proxy_password))
 
@@ -771,7 +785,7 @@ if vars(args).get('service'):
             stdout = "".join(stdout.readlines())
             logger.debug(stdout)
             wireguard_client_config = stdout
-            printProgressBar(16)
+            printProgressBar(22)
             print("on the client install wireguard, save the config and run wg-quick up wg0 as root")
             print("\n####\n\nOn Ubuntu run:\nsudo apt-get -yq install software-properties-common && sudo add-apt-repository -yu ppa:wireguard/wireguard && sudo apt-get -yq install wireguard")
             print("\ncat << 'EOF' | sudo tee /etc/wireguard/wg0.conf\n{}\nEOF".format(wireguard_client_config))
@@ -786,13 +800,13 @@ if vars(args).get('service'):
             stdout = "".join(stdout.readlines())
             logger.debug(stdout)
             ssh_pivot_out = stdout
-            printProgressBar(16)
+            printProgressBar(23)
             print("SSH Pivot Server set up, stdout:\n{}".format(ssh_pivot_out))
             print("\nSSH socks can be used in proxychains like this:\nsocks5 127.0.0.1 1080")
         #
         # if service == 'openvpn':
 else:
-    printProgressBar(16)
+    printProgressBar(24)
 
 ssh.close()
 write_config(config, configfile)

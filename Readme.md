@@ -35,7 +35,7 @@ supports installing wallets, for now only monero is supported.
 usage: stand-up.py [-h] [--target {digitalocean,gcloud,sporestack,manual}] [--digitalocean-api-key DIGITALOCEAN_API_KEY] [--gcloud-api-key-file GCLOUD_API_KEY_FILE]
                    [--gcloud-project-id GCLOUD_PROJECT_ID] [--sporestack-days SPORESTACK_DAYS] [--sporestack-refund-address SPORESTACK_REFUND_ADDRESS] [--sporestack-currency {btc,bch,bsv}]
                    [--instance-ip INSTANCE_IP] [--name NAME] [--region REGION] [--size SIZE] [--image IMAGE] [--user USER] [--ssh-port SSH_PORT] [--ssh-connection-tries SSH_CONNECTION_TRIES]
-                   [--ssh-wait-for-auth] [--tool TOOL] [--repo REPO] [--service {ipsec,proxy,shadowsocks,wireguard,ssh-pivot}] [--wallet {monero}] [--force] [--destroy] [--bare]
+                   [--ssh-wait-for-auth] [--tool TOOL] [--repo REPO] [--service {ipsec,proxy,shadowsocks,wireguard,ssh-pivot}] [--wallet {monero}] [--force] [--destroy] [--bare] [--no-kali]
                    [--compose-version COMPOSE_VERSION] [--verbose] [--quiet] [--ssh-private-key SSH_PRIVATE_KEY] [--create-private-key]
 
 optional arguments:
@@ -74,6 +74,7 @@ optional arguments:
   --force               overwrite existing incstances
   --destroy             destroy existing incstances
   --bare, -b            create bare instance
+  --no-kali             do not bootstrap kali
   --compose-version COMPOSE_VERSION
                         compose version (default: 1.25.0)
   --verbose, -v
