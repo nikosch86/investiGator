@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os.path, socket
 from os.path import expanduser
-from pprint import pprint
 import secrets
 import sys, os, stat, signal, time
 import json, base64, hashlib
