@@ -77,9 +77,9 @@ def cleanup_and_die(msg):
     elif args.target == 'sporestack':
         try:
             instance_dict
-            machine_info = sporestackv2.client.get_machine_info(config['name'])
+            machine_info = sporestack.client.get_machine_info(config['name'])
             logger.critical("calling delete() on instance id {}".format(machine_info['machine_id']))
-            sporestackv2.client.delete(config['name'], sporestackv2.client.API_ENDPOINT)
+            sporestack.client.delete(config['name'], sporestack.client.API_ENDPOINT)
         except NameError:
             logger.debug('no instance has been created yet')
     try:
@@ -103,9 +103,9 @@ except ImportError:
     cleanup_and_die("please install the digitalocean module: 'pip install -U python-digitalocean'")
 
 try:
-    import sporestackv2
+    import sporestack
 except ImportError:
-    cleanup_and_die("please install the sporestackv2 module: 'pip install -U sporestack'")
+    cleanup_and_die("please install the sporestack module: 'pip install -U sporestack'")
 
 try:
     from google.oauth2 import service_account
@@ -536,24 +536,24 @@ elif args.target == 'manual':
     logger.info("setting up existing instance on IP {}".format(instance_ip))
 elif args.target == 'sporestack':
     if vars(args).get('destroy'):
-        if sporestackv2.client.machine_exists(config['name']):
-            machine_info = sporestackv2.client.get_machine_info(config['name'])
-            sporestackv2.client.delete(config['name'], sporestackv2.client.API_ENDPOINT)
+        if sporestack.client.machine_exists(config['name']):
+            machine_info = sporestack.client.get_machine_info(config['name'])
+            sporestack.client.delete(config['name'], sporestack.client.API_ENDPOINT)
             cleanup_and_die("destroyed instance id {}, aborting".format(machine_info['machine_id']))
         else:
             cleanup_and_die("no instance with name {} found, aborting".format(config['name']))
 
-    if sporestackv2.client.machine_exists(config['name']):
-        machine_info = sporestackv2.client.get_machine_info(config['name'])
+    if sporestack.client.machine_exists(config['name']):
+        machine_info = sporestack.client.get_machine_info(config['name'])
         logger.warning('the requested name "{}" is already taken'.format(config['name']))
         if vars(args).get('force'):
-            sporestackv2.client.delete(config['name'], sporestackv2.client.API_ENDPOINT)
+            sporestack.client.delete(config['name'], sporestack.client.API_ENDPOINT)
             logger.warning('force option is set, calling destroy() on existing instance id {}'.format(machine_info['machine_id']))
         else:
             exit(1)
 
     try:
-        instance_dict = sporestackv2.client.launch(config['name'],
+        instance_dict = sporestack.client.launch(config['name'],
             config['sporestack_days'], # days,
             5, # disk,
             1,   # memory,
@@ -561,7 +561,7 @@ elif args.target == 'sporestack':
             '/128',   # ipv6,
             1,   # bandwidth,
             'digitalocean.sporestack.com',   # host=None,
-            sporestackv2.client.API_ENDPOINT,   # api_endpoint=API_ENDPOINT,
+            sporestack.client.API_ENDPOINT,   # api_endpoint=API_ENDPOINT,
             1,   # cores=1,
             config['sporestack_currency'],   # currency='bch',
             config['region'],   # region=None,
