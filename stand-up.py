@@ -21,7 +21,7 @@ argparser.add_argument("--instance-ip", help="Instance IP if manual mode is used
 argparser.add_argument("--name", "-n", help="slug name (default: %(default)s)", default='investig')
 argparser.add_argument("--region", "-r", help="region or zone (default: selects random region/zone)", default='random')
 argparser.add_argument("--size", "-s", help="slug size or machine type (default: %(default)s)", default='2gb')
-argparser.add_argument("--image", help="slug image (default: %(default)s)", default='ubuntu-16-04-x64')
+argparser.add_argument("--image", help="slug image (default: %(default)s)", default='ubuntu-20-04-x64')
 argparser.add_argument("--user", "-u", help="username to use for ssh connection (default: %(default)s)", default='root')
 argparser.add_argument("--ssh-port", help="port to use for ssh connection (default: %(default)s)", default=22, type=int)
 argparser.add_argument("--ssh-connection-tries", help="how many times to try to establish ssh connection (default: %(default)s)", default=30, type=int)
@@ -649,7 +649,7 @@ if not config['no_kali']:
         echo \"deb http://http.kali.org/kali kali-rolling main non-free contrib\" > /etc/apt/sources.list.d/kali.list && \
         echo \"deb-src http://http.kali.org/kali kali-rolling main non-free contrib\" >> /etc/apt/sources.list.d/kali.list && \
         export DEBIAN_FRONTEND=noninteractive; apt-get -q update && \
-        apt-get -o Dpkg::Options::=\"--force-overwrite\" -yq install console-setup-linux")
+        apt-get -o Dpkg::Options::=\"--force-overwrite\" -yq install console-setup-linux software-properties-common")
     logger.debug("".join(stdout.readlines()))
     if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
     printProgressBar(12)
@@ -664,7 +664,7 @@ if not config['bare']:
     printProgressBar(13)
 
     logger.info('installing tools "{}"'.format(standard_tools))
-    stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install {}".format("zlib1g-dev ruby-dev python-pip"))
+    stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install {}".format("zlib1g-dev ruby-dev python3-pip"))
     logger.debug("".join(stdout.readlines()))
     if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
 
@@ -712,7 +712,7 @@ if vars(args).get('wallet'):
         logger.info('installing wallet {}'.format(item))
 
         if item == 'monero':
-            stdin, stdout, stderr = ssh.exec_command("curl -L -o linux64.tar.bz2 https://downloads.getmonero.org/cli/linux64 && tar xf linux64.tar.bz2")
+            stdin, stdout, stderr = ssh.exec_command("curl -L -o linux64.tar.bz2 https://downloads.getmonero.org/cli/linux64 && tar xf linux64.tar.bz2 && rm linux64.tar.bz2")
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
             printProgressBar(18)
@@ -768,7 +768,7 @@ if vars(args).get('service'):
             print("\nsocks5 {} {} user {}".format(instance_ip, 1080, proxy_password))
 
         if service == 'wireguard':
-            stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; add-apt-repository -yu ppa:wireguard/wireguard && apt-get -yq install wireguard")
+            stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install wireguard")
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
             sftp = ssh.open_sftp()
