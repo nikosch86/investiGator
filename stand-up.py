@@ -16,13 +16,12 @@ argparser.add_argument("--digitalocean-api-key", help="API key for digitalocean"
 argparser.add_argument("--gcloud-api-key-file", help="API key file for GCloud")
 argparser.add_argument("--gcloud-project-id", help="Project ID for GCloud (default: first available project id)")
 argparser.add_argument("--sporestack-days", help="How many days to prepay sporestack instance", default=1, type=int)
-argparser.add_argument("--sporestack-refund-address", help="Refund Address for sporestack instances that have been terminated early", default=None)
 argparser.add_argument("--sporestack-currency", help="Which currency to use for payment", default='btc', choices=['btc', 'bch', 'bsv', 'xmr'])
 argparser.add_argument("--instance-ip", help="Instance IP if manual mode is used")
 argparser.add_argument("--name", "-n", help="slug name (default: %(default)s)", default='investig')
 argparser.add_argument("--region", "-r", help="region or zone (default: selects random region/zone)", default='random')
 argparser.add_argument("--size", "-s", help="slug size or machine type (default: %(default)s)", default='2gb')
-argparser.add_argument("--image", help="slug image (default: %(default)s)", default='ubuntu-16-04-x64')
+argparser.add_argument("--image", help="slug image (default: %(default)s)", default='ubuntu-20-04-x64')
 argparser.add_argument("--user", "-u", help="username to use for ssh connection (default: %(default)s)", default='root')
 argparser.add_argument("--ssh-port", help="port to use for ssh connection (default: %(default)s)", default=22, type=int)
 argparser.add_argument("--ssh-connection-tries", help="how many times to try to establish ssh connection (default: %(default)s)", default=30, type=int)
@@ -78,9 +77,9 @@ def cleanup_and_die(msg):
     elif args.target == 'sporestack':
         try:
             instance_dict
-            machine_info = sporestackv2.client.get_machine_info(config['name'])
+            machine_info = sporestack.client.get_machine_info(config['name'])
             logger.critical("calling delete() on instance id {}".format(machine_info['machine_id']))
-            sporestackv2.client.delete(config['name'], sporestackv2.client.API_ENDPOINT)
+            sporestack.client.delete(config['name'], sporestack.client.API_ENDPOINT)
         except NameError:
             logger.debug('no instance has been created yet')
     try:
@@ -104,9 +103,9 @@ except ImportError:
     cleanup_and_die("please install the digitalocean module: 'pip install -U python-digitalocean'")
 
 try:
-    import sporestackv2
+    import sporestack
 except ImportError:
-    cleanup_and_die("please install the sporestackv2 module: 'pip install -U sporestack'")
+    cleanup_and_die("please install the sporestack module: 'pip install -U sporestack'")
 
 try:
     from google.oauth2 import service_account
@@ -115,7 +114,7 @@ except ImportError:
     cleanup_and_die("please install the gcloud module: 'pip install -U google-api-python-client'")
 
 def write_config(configdict, configfile):
-    for nosave in ["bare", "no_kali", "create_private_key", "destroy", "force", "instance_ip", "name", "quiet", "verbose", "digitalocean_api_key", "gcloud_api_key_file", "gcloud_api_key_file", "ssh_wait_for_auth", "sporestack_refund_address"]:
+    for nosave in ["bare", "no_kali", "create_private_key", "destroy", "force", "instance_ip", "name", "quiet", "verbose", "digitalocean_api_key", "gcloud_api_key_file", "gcloud_api_key_file", "ssh_wait_for_auth"]:
         if nosave in configdict: del configdict[nosave]
     if not os.path.exists(os.path.dirname(configfile)):
         os.mkdir(os.path.dirname(configfile))
@@ -537,24 +536,24 @@ elif args.target == 'manual':
     logger.info("setting up existing instance on IP {}".format(instance_ip))
 elif args.target == 'sporestack':
     if vars(args).get('destroy'):
-        if sporestackv2.client.machine_exists(config['name']):
-            machine_info = sporestackv2.client.get_machine_info(config['name'])
-            sporestackv2.client.delete(config['name'], sporestackv2.client.API_ENDPOINT)
+        if sporestack.client.machine_exists(config['name']):
+            machine_info = sporestack.client.get_machine_info(config['name'])
+            sporestack.client.delete(config['name'], sporestack.client.API_ENDPOINT)
             cleanup_and_die("destroyed instance id {}, aborting".format(machine_info['machine_id']))
         else:
             cleanup_and_die("no instance with name {} found, aborting".format(config['name']))
 
-    if sporestackv2.client.machine_exists(config['name']):
-        machine_info = sporestackv2.client.get_machine_info(config['name'])
+    if sporestack.client.machine_exists(config['name']):
+        machine_info = sporestack.client.get_machine_info(config['name'])
         logger.warning('the requested name "{}" is already taken'.format(config['name']))
         if vars(args).get('force'):
-            sporestackv2.client.delete(config['name'], sporestackv2.client.API_ENDPOINT)
+            sporestack.client.delete(config['name'], sporestack.client.API_ENDPOINT)
             logger.warning('force option is set, calling destroy() on existing instance id {}'.format(machine_info['machine_id']))
         else:
             exit(1)
 
     try:
-        instance_dict = sporestackv2.client.launch(config['name'],
+        instance_dict = sporestack.client.launch(config['name'],
             config['sporestack_days'], # days,
             5, # disk,
             1,   # memory,
@@ -562,8 +561,7 @@ elif args.target == 'sporestack':
             '/128',   # ipv6,
             1,   # bandwidth,
             'digitalocean.sporestack.com',   # host=None,
-            sporestackv2.client.API_ENDPOINT,   # api_endpoint=API_ENDPOINT,
-            config['sporestack_refund_address'],   # refund_address=None,
+            sporestack.client.API_ENDPOINT,   # api_endpoint=API_ENDPOINT,
             1,   # cores=1,
             config['sporestack_currency'],   # currency='bch',
             config['region'],   # region=None,
@@ -651,7 +649,7 @@ if not config['no_kali']:
         echo \"deb http://http.kali.org/kali kali-rolling main non-free contrib\" > /etc/apt/sources.list.d/kali.list && \
         echo \"deb-src http://http.kali.org/kali kali-rolling main non-free contrib\" >> /etc/apt/sources.list.d/kali.list && \
         export DEBIAN_FRONTEND=noninteractive; apt-get -q update && \
-        apt-get -o Dpkg::Options::=\"--force-overwrite\" -yq install console-setup-linux")
+        apt-get -o Dpkg::Options::=\"--force-overwrite\" -yq install console-setup-linux software-properties-common")
     logger.debug("".join(stdout.readlines()))
     if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
     printProgressBar(12)
@@ -666,7 +664,7 @@ if not config['bare']:
     printProgressBar(13)
 
     logger.info('installing tools "{}"'.format(standard_tools))
-    stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install {}".format("zlib1g-dev ruby-dev python-pip"))
+    stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install {}".format("zlib1g-dev ruby-dev python3-pip"))
     logger.debug("".join(stdout.readlines()))
     if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
 
@@ -714,7 +712,7 @@ if vars(args).get('wallet'):
         logger.info('installing wallet {}'.format(item))
 
         if item == 'monero':
-            stdin, stdout, stderr = ssh.exec_command("curl -L -o linux64.tar.bz2 https://downloads.getmonero.org/cli/linux64 && tar xf linux64.tar.bz2")
+            stdin, stdout, stderr = ssh.exec_command("curl -L -o linux64.tar.bz2 https://downloads.getmonero.org/cli/linux64 && tar xf linux64.tar.bz2 && rm linux64.tar.bz2")
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
             printProgressBar(18)
@@ -770,7 +768,7 @@ if vars(args).get('service'):
             print("\nsocks5 {} {} user {}".format(instance_ip, 1080, proxy_password))
 
         if service == 'wireguard':
-            stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; add-apt-repository -yu ppa:wireguard/wireguard && apt-get -yq install wireguard")
+            stdin, stdout, stderr = ssh.exec_command("export DEBIAN_FRONTEND=noninteractive; apt-get -yq install wireguard")
             logger.debug("".join(stdout.readlines()))
             if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
             sftp = ssh.open_sftp()
