@@ -188,7 +188,7 @@ elif vars(args).get('digitalocean_api_key'):
 if os.getenv('GCLOUD_API_KEY_FILE', False) and not args.gcloud_api_key_file:
     logger.info('using GCloud api key file from environment')
     cloudkeys['gcloud'] = os.getenv('GCLOUD_API_KEY_FILE', False)
-elif args.gcloud_api_key_file:
+elif vars(args).get('gcloud_api_key_file'):
     logger.debug("using GCloud api key file from arguments")
     cloudkeys['gcloud'] = args.gcloud_api_key_file
 
