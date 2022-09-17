@@ -449,10 +449,26 @@ if args.target == 'digitalocean':
     for action in actions:
         action.load()
     action.wait()
+    if action.status == 'in-progress':
+        logger.debug("droplet not yet up, waiting some more")
+        actions = droplet.get_actions()
+        for action in actions:
+            action.load()
+        action.wait()
     droplet.load()
     if droplet.status != 'active' and droplet.status != 'new':
         cleanup_and_die('something went wrong creating the instance, the status is "{}"'.format(droplet.status))
+    waitForNetworkingCount = 0
+    waitForNetworkingMax = 10
+    while droplet.ip_address is None and waitForNetworkingCount < waitForNetworkingMax:
+        waitForNetworkingCount += 1
+        logger.debug("the droplet does not report back an external IP, waiting {}/{}".format(waitForNetworkingCount, waitForNetworkingMax))
+        time.sleep(2)
+        droplet.load()
     instance_ip = droplet.ip_address
+    if instance_ip is None:
+        print(vars(droplet))
+        cleanup_and_die('something went wrong, the droplet does not report back an external IP: {}'.format(vars(droplet)))
     logger.info("instance with id {} has external IP {}".format(droplet.id, instance_ip))
     printProgressBar(7)
     try:
@@ -628,10 +644,15 @@ while True:
 printProgressBar(9)
 logger.info("setting up system")
 stdin, stdout, stderr = ssh.exec_command("echo LC_ALL=\"en_US.UTF-8\" >> /etc/default/locale; \
-    apt-get -q update && apt-get install -yq curl software-properties-common dirmngr && \
-    docker -v >/dev/null 2>&1 || curl https://get.docker.com | bash")
+    apt-get -q -o DPkg::Lock::Timeout=60 update && apt-get -o DPkg::Lock::Timeout=60 install -yq curl software-properties-common dirmngr")
 logger.debug("".join(stdout.readlines()))
 if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+
+logger.info("setting up docker")
+stdin, stdout, stderr = ssh.exec_command("docker -v >/dev/null 2>&1 || curl https://get.docker.com | bash")
+logger.debug("".join(stdout.readlines()))
+if stdout.channel.recv_exit_status() > 0: logger.critical("STDERR of setup command: {}".format(stderr.read()))
+
 
 printProgressBar(10)
 
