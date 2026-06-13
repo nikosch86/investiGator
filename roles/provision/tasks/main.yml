@@ -1,0 +1,41 @@
+---
+- name: Validate provider target
+  ansible.builtin.assert:
+    that: target in supported_targets
+    fail_msg: "Unsupported target '{{ target }}'. Choose one of: {{ supported_targets | join(', ') }}"
+    quiet: true
+
+- name: "Run provider tasks for '{{ target }}'"
+  ansible.builtin.include_tasks: "{{ target }}.yml"
+
+- name: Register provisioned host in the investigator group
+  ansible.builtin.add_host:
+    name: "{{ provisioned_ip }}"
+    groups: investigator
+    ansible_host: "{{ provisioned_ip }}"
+    ansible_user: "{{ ssh_user }}"
+    ansible_port: "{{ ssh_port }}"
+    ansible_ssh_private_key_file: "{{ ssh_private_key_file }}"
+  when:
+    - provision_state == 'present'
+    - provisioned_ip is defined
+    - provisioned_ip | length > 0
+
+- name: Wait for SSH to come up
+  ansible.builtin.wait_for:
+    host: "{{ provisioned_ip }}"
+    port: "{{ ssh_port }}"
+    search_regex: OpenSSH
+    timeout: 300
+  when:
+    - provision_state == 'present'
+    - provisioned_ip is defined
+    - provisioned_ip | length > 0
+
+- name: Provisioned instance IP
+  ansible.builtin.debug:
+    msg: "{{ target }} instance '{{ instance_name }}' is reachable at {{ provisioned_ip }}"
+  when:
+    - provision_state == 'present'
+    - provisioned_ip is defined
+    - provisioned_ip | length > 0

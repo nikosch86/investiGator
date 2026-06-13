@@ -1,0 +1,5 @@
+---
+# Full run: provision the instance, then configure it.
+# Entry point for `ansible-playbook site.yml`.
+- ansible.builtin.import_playbook: provision.yml  # noqa: name[play]
+- ansible.builtin.import_playbook: configure.yml  # noqa: name[play]

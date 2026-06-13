@@ -1,0 +1,27 @@
+---
+- name: Check whether the Monero CLI is already installed
+  ansible.builtin.find:
+    paths: /opt
+    patterns: "monero-x86_64-linux-gnu*"
+    file_type: directory
+  register: monero_dir
+  when: "'monero' in wallets"
+
+- name: Install the Monero CLI wallet
+  ansible.builtin.unarchive:
+    src: https://downloads.getmonero.org/cli/linux64
+    dest: /opt
+    remote_src: true
+  when:
+    - "'monero' in wallets"
+    - monero_dir.matched | default(0) == 0
+
+- name: Monero usage hint
+  ansible.builtin.debug:
+    msg: >-
+      Monero CLI installed under /opt. To restore from keys against a remote
+      node (PRIVACY WARNING: a remote node can see your IP):
+      cd /opt/monero-x86_64-linux-gnu*/ &&
+      ./monero-wallet-cli --daemon-address node.moneroworld.com:18089
+      --generate-from-keys restored-wallet
+  when: "'monero' in wallets"

@@ -1,0 +1,18 @@
+---
+# Manual target: configure a machine that already exists.
+#  - If instance_ip is given, register it as the host to configure.
+#  - Otherwise rely on hosts declared in the static inventory's
+#    `investigator` group (nothing to do here).
+- name: Manual | use the provided instance IP
+  ansible.builtin.set_fact:
+    provisioned_ip: "{{ instance_ip }}"
+  when:
+    - provision_state == 'present'
+    - instance_ip | length > 0
+
+- name: Manual | note when relying on static inventory
+  ansible.builtin.debug:
+    msg: "No instance_ip given for target=manual; configuring hosts from the static inventory."
+  when:
+    - provision_state == 'present'
+    - instance_ip | length == 0

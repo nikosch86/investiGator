@@ -1,0 +1,21 @@
+---
+- name: SSH pivot |run the SSH/SOCKS pivot container
+  community.docker.docker_container:
+    name: ssh-pivot
+    image: nikosch86/docker-socks
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "8022:22"
+
+- name: SSH pivot |read the generated credentials from the container log
+  ansible.builtin.shell: docker logs ssh-pivot 2>&1
+  register: ssh_pivot_log
+  changed_when: false
+
+- name: SSH pivot |connection details
+  ansible.builtin.debug:
+    msg:
+      - "SSH pivot ready on {{ ansible_host | default(inventory_hostname) }}:8022"
+      - "{{ ssh_pivot_log.stdout_lines }}"
+      - "Once tunneled, use in proxychains: socks5 127.0.0.1 1080"

@@ -1,0 +1,23 @@
+---
+- name: ShadowSocks |generate password
+  ansible.builtin.set_fact:
+    shadowsocks_password: "{{ shadowsocks_password | default(lookup('community.general.random_string', length=16, special=false), true) }}"
+
+- name: ShadowSocks |run the shadowsocks-libev container
+  community.docker.docker_container:
+    name: shadowsocks
+    image: shadowsocks/shadowsocks-libev
+    state: started
+    restart_policy: unless-stopped
+    env:
+      PASSWORD: "{{ shadowsocks_password }}"
+      METHOD: aes-256-gcm
+    ports:
+      - "443:8388"
+      - "443:8388/udp"
+
+- name: ShadowSocks |client details
+  ansible.builtin.debug:
+    msg:
+      - "ShadowSocks ready. Client: apt install shadowsocks-libev, then:"
+      - "ss-local -l 1080 -m aes-256-gcm -s {{ ansible_host | default(inventory_hostname) }} -p 443 -k {{ shadowsocks_password }}"

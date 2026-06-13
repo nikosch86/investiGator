@@ -1,0 +1,49 @@
+---
+- name: GCP | ensure project and credentials are set
+  ansible.builtin.assert:
+    that:
+      - gcp_project | length > 0
+      - gcp_service_account_file | length > 0
+    fail_msg: "Set GCP_PROJECT and GCP_SERVICE_ACCOUNT_FILE (or -e gcp_project=... -e gcp_service_account_file=...)"
+    quiet: true
+
+- name: GCP | create instance
+  google.cloud.gcp_compute_instance:
+    name: "{{ instance_name }}"
+    zone: "{{ gcp_zone }}"
+    machine_type: "{{ gcp_machine_type }}"
+    project: "{{ gcp_project }}"
+    auth_kind: "{{ gcp_auth_kind }}"
+    service_account_file: "{{ gcp_service_account_file }}"
+    disks:
+      - auto_delete: true
+        boot: true
+        initialize_params:
+          source_image: "{{ gcp_image }}"
+          disk_size_gb: "{{ gcp_disk_size_gb }}"
+    network_interfaces:
+      - network:
+          selfLink: "{{ gcp_network }}"
+        access_configs:
+          - name: External NAT
+            type: ONE_TO_ONE_NAT
+    metadata:
+      ssh-keys: "{{ ssh_user }}:{{ ssh_public_key }} {{ ssh_user }}"
+    state: present
+  register: gcp_instance
+  when: provision_state == 'present'
+
+- name: GCP | record instance IP
+  ansible.builtin.set_fact:
+    provisioned_ip: "{{ gcp_instance.networkInterfaces[0].accessConfigs[0].natIP }}"
+  when: provision_state == 'present'
+
+- name: GCP | destroy instance
+  google.cloud.gcp_compute_instance:
+    name: "{{ instance_name }}"
+    zone: "{{ gcp_zone }}"
+    project: "{{ gcp_project }}"
+    auth_kind: "{{ gcp_auth_kind }}"
+    service_account_file: "{{ gcp_service_account_file }}"
+    state: absent
+  when: provision_state == 'absent'

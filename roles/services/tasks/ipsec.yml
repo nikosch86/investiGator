@@ -1,0 +1,29 @@
+---
+- name: IPsec |generate VPN credentials
+  ansible.builtin.set_fact:
+    ipsec_psk: "{{ ipsec_psk | default(lookup('community.general.random_string', length=24, special=false), true) }}"
+    ipsec_user: "{{ ipsec_user | default('vpnuser', true) }}"
+    ipsec_password: "{{ ipsec_password | default(lookup('community.general.random_string', length=16, special=false), true) }}"
+
+- name: IPsec |run the IPsec VPN server container
+  community.docker.docker_container:
+    name: ipsec-vpn
+    image: hwdsl2/ipsec-vpn-server
+    state: started
+    restart_policy: unless-stopped
+    privileged: true
+    env:
+      VPN_IPSEC_PSK: "{{ ipsec_psk }}"
+      VPN_USER: "{{ ipsec_user }}"
+      VPN_PASSWORD: "{{ ipsec_password }}"
+    ports:
+      - "500:500/udp"
+      - "4500:4500/udp"
+    volumes:
+      - /lib/modules:/lib/modules:ro
+
+- name: IPsec |connection details
+  ansible.builtin.debug:
+    msg:
+      - "IPsec/L2TP VPN ready at {{ ansible_host | default(inventory_hostname) }}"
+      - "PSK={{ ipsec_psk }}  user={{ ipsec_user }}  password={{ ipsec_password }}"

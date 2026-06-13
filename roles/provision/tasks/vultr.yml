@@ -1,0 +1,40 @@
+---
+- name: Vultr | ensure API key is set
+  ansible.builtin.assert:
+    that: vultr_api_key | length > 0
+    fail_msg: "Set VULTR_API_KEY or -e vultr_api_key=..."
+    quiet: true
+
+- name: Vultr | register SSH key
+  vultr.cloud.ssh_key:
+    api_key: "{{ vultr_api_key }}"
+    name: "{{ ssh_key_name }}"
+    ssh_key: "{{ ssh_public_key }}"
+    state: present
+  when: provision_state == 'present'
+
+- name: Vultr | create instance
+  vultr.cloud.instance:
+    api_key: "{{ vultr_api_key }}"
+    label: "{{ instance_name }}"
+    region: "{{ vultr_region }}"
+    plan: "{{ vultr_plan }}"
+    os: "{{ vultr_os }}"
+    ssh_keys:
+      - "{{ ssh_key_name }}"
+    state: present
+  register: vultr_inst
+  when: provision_state == 'present'
+
+- name: Vultr | record instance IP
+  ansible.builtin.set_fact:
+    provisioned_ip: "{{ vultr_inst.vultr_instance.main_ip }}"
+  when: provision_state == 'present'
+
+- name: Vultr | destroy instance
+  vultr.cloud.instance:
+    api_key: "{{ vultr_api_key }}"
+    label: "{{ instance_name }}"
+    region: "{{ vultr_region }}"
+    state: absent
+  when: provision_state == 'absent'

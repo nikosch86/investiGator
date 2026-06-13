@@ -1,0 +1,26 @@
+---
+# Configure every host in the `investigator` group.
+- name: Configure instance
+  hosts: investigator
+  become: true
+  gather_facts: true
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  roles:
+    - role: common
+    - role: docker
+    - role: kali
+      when: install_kali | bool
+    - role: tools
+    - role: wallets
+      when: wallets | length > 0
+    - role: services
+      when: services | length > 0
+
+  post_tasks:
+    - name: Connection summary
+      ansible.builtin.debug:
+        msg: >-
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+          -p {{ ssh_port }} -i {{ ssh_private_key_file }}
+          {{ ssh_user }}@{{ ansible_host | default(inventory_hostname) }}

@@ -1,0 +1,18 @@
+---
+# Ansible collections required by investiGator.
+# Install with: ansible-galaxy collection install -r requirements.yml
+collections:
+  # Configuration roles
+  - name: community.general      # locale_gen, linode_v4, random_string lookup
+  - name: community.docker       # docker_container for the service containers
+  - name: community.crypto       # openssh_keypair for optional key generation
+  - name: ansible.posix          # sysctl for the wireguard role
+
+  # Provisioning providers
+  - name: community.digitalocean # DigitalOcean droplets + ssh keys
+  - name: google.cloud           # GCP compute instances
+  - name: amazon.aws             # AWS EC2 instances + key pairs
+  - name: hetzner.hcloud         # Hetzner Cloud servers
+  - name: vultr.cloud            # Vultr instances
+  # Linode is provided by community.general (linode_v4), already listed above.
+  # Sporestack has no collection; it is driven via ansible.builtin.uri.

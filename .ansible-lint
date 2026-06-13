@@ -1,0 +1,7 @@
+---
+profile: moderate
+exclude_paths:
+  - .git/
+  - legacy/
+skip_list:
+  - latest        # standard/extra repos are intentionally cloned at HEAD

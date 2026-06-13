@@ -1,0 +1,26 @@
+---
+- name: Add the Kali archive signing key
+  ansible.builtin.get_url:
+    url: https://archive.kali.org/archive-key.asc
+    dest: /etc/apt/keyrings/kali-archive-key.asc
+    mode: "0644"
+
+- name: Add the Kali rolling repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/etc/apt/keyrings/kali-archive-key.asc]
+      http://http.kali.org/kali kali-rolling main contrib non-free non-free-firmware
+    filename: kali
+    state: present
+    update_cache: true
+
+- name: Pin Kali low so it cannot replace the base Ubuntu system
+  ansible.builtin.copy:
+    dest: /etc/apt/preferences.d/kali.pref
+    content: |
+      Package: *
+      Pin: release o=Kali
+      Pin-Priority: 50
+    owner: root
+    group: root
+    mode: "0644"

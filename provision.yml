@@ -1,0 +1,18 @@
+---
+# Provision (or, with provision_state=absent, tear down) the target instance and
+# register it in the in-memory `investigator` group for the configure play.
+- name: Provision instance
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Generate SSH keypair if requested
+      community.crypto.openssh_keypair:
+        path: "{{ ssh_private_key_file }}"
+        type: rsa
+        size: 4096
+      when: create_ssh_key | bool
+
+    - name: Provision via the selected provider
+      ansible.builtin.include_role:
+        name: provision

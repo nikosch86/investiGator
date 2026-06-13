@@ -1,0 +1,43 @@
+---
+- name: DigitalOcean | ensure API token is set
+  ansible.builtin.assert:
+    that: do_api_token | length > 0
+    fail_msg: "Set DIGITALOCEAN_API_KEY or -e do_api_token=..."
+    quiet: true
+
+- name: DigitalOcean | register SSH key
+  community.digitalocean.digital_ocean_sshkey:
+    oauth_token: "{{ do_api_token }}"
+    name: "{{ ssh_key_name }}"
+    ssh_pub_key: "{{ ssh_public_key }}"
+    state: present
+  register: do_sshkey
+  when: provision_state == 'present'
+
+- name: DigitalOcean | create droplet
+  community.digitalocean.digital_ocean_droplet:
+    oauth_token: "{{ do_api_token }}"
+    name: "{{ instance_name }}"
+    region: "{{ do_region }}"
+    size: "{{ do_size }}"
+    image: "{{ do_image }}"
+    ssh_keys:
+      - "{{ do_sshkey.data.ssh_key.fingerprint }}"
+    unique_name: true
+    wait: true
+    state: present
+  register: do_droplet
+  when: provision_state == 'present'
+
+- name: DigitalOcean | record instance IP
+  ansible.builtin.set_fact:
+    provisioned_ip: "{{ (do_droplet.data.droplet.networks.v4 | selectattr('type', 'equalto', 'public') | first).ip_address }}"
+  when: provision_state == 'present'
+
+- name: DigitalOcean | destroy droplet
+  community.digitalocean.digital_ocean_droplet:
+    oauth_token: "{{ do_api_token }}"
+    name: "{{ instance_name }}"
+    unique_name: true
+    state: absent
+  when: provision_state == 'absent'

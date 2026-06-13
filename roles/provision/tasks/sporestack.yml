@@ -1,0 +1,64 @@
+---
+# Sporestack is driven directly against its REST API (no Ansible collection).
+# IMPORTANT: a Sporestack token holds a prepaid balance that must be funded with
+# cryptocurrency out of band — that payment cannot be automated here. Supply an
+# already-funded token via SPORESTACK_TOKEN / -e sporestack_token=...
+- name: Sporestack | ensure a (funded) token is set
+  ansible.builtin.assert:
+    that: sporestack_token | length > 0
+    fail_msg: >-
+      Set SPORESTACK_TOKEN to a pre-funded Sporestack token. Crypto funding
+      cannot be performed by Ansible; create and fund the token first
+      (e.g. with the sporestack CLI).
+    quiet: true
+
+- name: Sporestack | launch server
+  ansible.builtin.uri:
+    url: "{{ sporestack_api }}/token/{{ sporestack_token }}/servers"
+    method: POST
+    body_format: json
+    body:
+      flavor: "{{ sporestack_flavor }}"
+      operating_system: "{{ sporestack_os }}"
+      ssh_key: "{{ ssh_public_key }}"
+      provider: "{{ sporestack_provider }}"
+      region: "{{ sporestack_region | default(omit, true) }}"
+      days: "{{ sporestack_days | int }}"
+      hostname: "{{ instance_name }}"
+    status_code: [200, 201]
+  register: ss_launch
+  when: provision_state == 'present'
+
+- name: Sporestack | capture machine id
+  ansible.builtin.set_fact:
+    ss_machine_id: "{{ ss_launch.json.machine_id }}"
+  when: provision_state == 'present'
+
+- name: Sporestack | wait for an IPv4 to be assigned
+  ansible.builtin.uri:
+    url: "{{ sporestack_api }}/token/{{ sporestack_token }}/servers/{{ ss_machine_id }}"
+    method: GET
+  register: ss_info
+  until: ss_info.json.ipv4 | default('') | length > 0
+  retries: 30
+  delay: 10
+  when: provision_state == 'present'
+
+- name: Sporestack | record instance IP
+  ansible.builtin.set_fact:
+    provisioned_ip: "{{ ss_info.json.ipv4 }}"
+  when: provision_state == 'present'
+
+- name: Sporestack | report machine id (needed for destroy)
+  ansible.builtin.debug:
+    msg: "Sporestack machine_id={{ ss_machine_id }} — pass -e sporestack_machine_id={{ ss_machine_id }} to destroy.yml"
+  when: provision_state == 'present'
+
+- name: Sporestack | destroy server
+  ansible.builtin.uri:
+    url: "{{ sporestack_api }}/token/{{ sporestack_token }}/servers/{{ sporestack_machine_id }}"
+    method: DELETE
+    status_code: [200, 202, 204]
+  when:
+    - provision_state == 'absent'
+    - sporestack_machine_id | length > 0
