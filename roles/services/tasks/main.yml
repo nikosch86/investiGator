@@ -1,0 +1,13 @@
+---
+- name: Validate requested services
+  ansible.builtin.assert:
+    that: item in services_supported
+    fail_msg: "Unsupported service '{{ item }}'. Supported: {{ services_supported | join(', ') }}"
+    quiet: true
+  loop: "{{ services }}"
+
+- name: Install each requested service
+  ansible.builtin.include_tasks: "{{ service_name }}.yml"
+  loop: "{{ services }}"
+  loop_control:
+    loop_var: service_name

@@ -1,0 +1,84 @@
+---
+- name: WireGuard |install wireguard
+  ansible.builtin.apt:
+    name: wireguard
+    state: present
+    update_cache: true
+
+- name: WireGuard |enable IP forwarding
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: "1"
+    sysctl_set: true
+    state: present
+    reload: true
+  loop:
+    - net.ipv4.ip_forward
+    - net.ipv6.conf.all.forwarding
+
+- name: WireGuard |check for an existing tunnel config
+  ansible.builtin.stat:
+    path: /etc/wireguard/wg0.conf
+  register: wg_conf
+
+- name: WireGuard |generate keys and tunnel configuration
+  when: not wg_conf.stat.exists
+  block:
+    - name: WireGuard |generate server private key
+      ansible.builtin.command: wg genkey
+      register: wg_server_priv
+      changed_when: false
+      no_log: true
+
+    - name: WireGuard |derive server public key
+      ansible.builtin.command: wg pubkey
+      args:
+        stdin: "{{ wg_server_priv.stdout }}"
+      register: wg_server_pub
+      changed_when: false
+      no_log: true
+
+    - name: WireGuard |generate client private key
+      ansible.builtin.command: wg genkey
+      register: wg_client_priv
+      changed_when: false
+      no_log: true
+
+    - name: WireGuard |derive client public key
+      ansible.builtin.command: wg pubkey
+      args:
+        stdin: "{{ wg_client_priv.stdout }}"
+      register: wg_client_pub
+      changed_when: false
+      no_log: true
+
+    - name: WireGuard |write server config
+      ansible.builtin.template:
+        src: wg0-server.conf.j2
+        dest: /etc/wireguard/wg0.conf
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: WireGuard |write client config
+      ansible.builtin.template:
+        src: wg0-client.conf.j2
+        dest: /root/wg0-client.conf
+        owner: root
+        group: root
+        mode: "0600"
+
+- name: WireGuard |enable and start wg-quick@wg0
+  ansible.builtin.service:
+    name: wg-quick@wg0
+    state: started
+    enabled: true
+
+- name: WireGuard |read back the client config
+  ansible.builtin.slurp:
+    src: /root/wg0-client.conf
+  register: wg_client_conf
+
+- name: WireGuard |client config (save as /etc/wireguard/wg0.conf on the client)
+  ansible.builtin.debug:
+    msg: "{{ (wg_client_conf.content | b64decode).split('\n') }}"

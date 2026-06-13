@@ -1,81 +1,138 @@
 # investiGator
 
-script to create droplet / instance on digitalocean or google cloud or setup a manually deployed machine  
+An Ansible playbook that **provisions** a throwaway cloud VM (or targets a
+machine you already have) and **configures** it as a pentest / VPN / proxy box —
+Docker, the Kali pentest toolset, wallets, and a choice of tunnelling services.
 
-with sporestack it is possible to prepay a digitalocean instance using cryptocurrency,  
-sporestack supports the standard digitalocean regions, but currently there is no nice way to specify the instance size or image via the API,  
-so these values are fixed to the sporestack defaults for now (1GB, 1 Core, ubuntu 16.04)  
+This is the Ansible rewrite of the original `stand-up.py` CLI. Everything the
+script did over SSH is now expressed as idempotent roles, and instance creation
+is handled by each provider's official Ansible collection.
 
-the minimum configuration (called "bare") comes with docker and docker-compose preinstalled.  
-By default the script makes use of the kali repository to install a bunch of useful tools:  
-`nmap git wpscan exploitdb hashcat hydra gobuster crunch lynx seclists wordlists dirb wfuzz`  
-and repos:  
-`magnumripper/JohnTheRipper`, `erwanlr/Fingerprinter`, `laramies/theHarvester`
+## Supported providers
 
-## tools / repos
-supports adding of additonal tools with the `--tool` and repos with the `--repo` switches which can both be specified multiple times.  
+| `target`       | Provisioning module                         | Credentials (env var)        |
+|----------------|---------------------------------------------|------------------------------|
+| `digitalocean` | `community.digitalocean.digital_ocean_droplet` | `DIGITALOCEAN_API_KEY`    |
+| `gcloud`       | `google.cloud.gcp_compute_instance`         | `GCP_PROJECT`, `GCP_SERVICE_ACCOUNT_FILE` |
+| `aws`          | `amazon.aws.ec2_instance`                   | standard boto3 chain (`AWS_*`) |
+| `hetzner`      | `hetzner.hcloud.server`                     | `HCLOUD_TOKEN`               |
+| `vultr`        | `vultr.cloud.instance`                      | `VULTR_API_KEY`              |
+| `linode`       | `community.general.linode_v4`               | `LINODE_ACCESS_TOKEN`        |
+| `sporestack`   | REST API via `ansible.builtin.uri`          | `SPORESTACK_TOKEN` (pre-funded) |
+| `manual`       | none — configure an existing host           | —                            |
 
+## Requirements
 
-## VPN / Proxy services
-supports installing additional services such as VPN or proxy with the `--service` switch.  
-currently supported are:
-- `shadowsocks` create libev based dockerized shadowsocks server
-- `ipsec` create dockerized ipsec + user/pass/psk
-- `proxy` create dockerized socks5 proxy with user authentication, returns config line for proxychains
-- `wireguard` install kernel modules and bootstrap wireguard configuration
-- `ssh-pivot` create dockerized ssh server with random credentials to pivot or tunnel through, returns config line for proxychains
-
-## Wallets
-supports installing wallets, for now only monero is supported.  
-
-## help
+```bash
+# Ansible collections
+ansible-galaxy collection install -r requirements.yml
+# Python SDKs for the providers you intend to use (control node)
+pip install -r requirements.txt
 ```
-usage: stand-up.py [-h] [--target {digitalocean,gcloud,sporestack,manual}] [--digitalocean-api-key DIGITALOCEAN_API_KEY] [--gcloud-api-key-file GCLOUD_API_KEY_FILE]
-                   [--gcloud-project-id GCLOUD_PROJECT_ID] [--sporestack-days SPORESTACK_DAYS] [--sporestack-currency {btc,bch,bsv}]
-                   [--instance-ip INSTANCE_IP] [--name NAME] [--region REGION] [--size SIZE] [--image IMAGE] [--user USER] [--ssh-port SSH_PORT] [--ssh-connection-tries SSH_CONNECTION_TRIES]
-                   [--ssh-wait-for-auth] [--tool TOOL] [--repo REPO] [--service {ipsec,proxy,shadowsocks,wireguard,ssh-pivot}] [--wallet {monero}] [--force] [--destroy] [--bare] [--no-kali]
-                   [--compose-version COMPOSE_VERSION] [--verbose] [--quiet] [--ssh-private-key SSH_PRIVATE_KEY] [--create-private-key]
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --target {digitalocean,gcloud,sporestack,manual}, -t {digitalocean,gcloud,sporestack,manual}
-                        which provider to use (default: digitalocean)
-  --digitalocean-api-key DIGITALOCEAN_API_KEY
-                        API key for digitalocean
-  --gcloud-api-key-file GCLOUD_API_KEY_FILE
-                        API key file for GCloud
-  --gcloud-project-id GCLOUD_PROJECT_ID
-                        Project ID for GCloud (default: first available project id)
-  --sporestack-days SPORESTACK_DAYS
-                        How many days to prepay sporestack instance
-  --sporestack-currency {btc,bch,bsv}
-                        Which currency to use for payment
-  --instance-ip INSTANCE_IP
-                        Instance IP if manual mode is used
-  --name NAME, -n NAME  slug name (default: investig)
-  --region REGION, -r REGION
-                        region or zone (default: selects random region/zone)
-  --size SIZE, -s SIZE  slug size or machine type (default: 2gb)
-  --image IMAGE         slug image (default: ubuntu-16-04-x64)
-  --user USER, -u USER  username to use for ssh connection (default: root)
-  --ssh-port SSH_PORT   port to use for ssh connection (default: 22)
-  --ssh-connection-tries SSH_CONNECTION_TRIES
-                        how many times to try to establish ssh connection (default: 30)
-  --ssh-wait-for-auth   retry in case of failed authentication upon establishing ssh session
-  --tool TOOL           additonal tools to install
-  --repo REPO           additonal repos to install
-  --service {ipsec,proxy,shadowsocks,wireguard,ssh-pivot}
-                        service to install
-  --wallet {monero}     wallet to install
-  --force               overwrite existing incstances
-  --destroy             destroy existing incstances
-  --bare, -b            create bare instance
-  --no-kali             do not bootstrap kali
-  --compose-version COMPOSE_VERSION
-                        compose version (default: 1.25.0)
-  --verbose, -v
-  --quiet, -q           only display errors and IP
-  --ssh-private-key SSH_PRIVATE_KEY, -i SSH_PRIVATE_KEY
-                        SSH key to access instance (default: ~/.ssh/id_rsa)
-  --create-private-key  create ssh key to access instance
-  ```
+The target host only needs Python 3 and SSH; the `docker` role installs the
+Docker SDK for Python there itself.
+
+## Quick start
+
+Provision **and** configure in one shot:
+
+```bash
+export DIGITALOCEAN_API_KEY=dop_v1_xxx
+ansible-playbook site.yml -e target=digitalocean -e instance_name=recon
+```
+
+Configure a machine you already have (no provisioning):
+
+```bash
+ansible-playbook site.yml -e target=manual -e instance_ip=203.0.113.10
+# or list hosts under the `investigator` group in inventory/hosts.yml and run:
+ansible-playbook configure.yml
+```
+
+Tear an instance down again:
+
+```bash
+ansible-playbook destroy.yml -e target=digitalocean -e instance_name=recon
+```
+
+## What gets installed
+
+- **common** – base packages + `en_US.UTF-8` locale.
+- **docker** – Docker Engine, CLI, Compose plugin, and the Python SDK.
+- **kali** (when `install_kali: true`) – the Kali rolling apt repo, pinned at low
+  priority so it can supply pentest tools without replacing the base system.
+- **tools** (skipped when `bare: true`) – the standard toolset
+  (`nmap git wpscan exploitdb hashcat hydra gobuster crunch lynx seclists
+  wordlists dirb wfuzz`) and repos (`magnumripper/JohnTheRipper`,
+  `erwanlr/Fingerprinter`, `laramies/theHarvester`) cloned into `/opt`. Add your
+  own with `extra_tools` / `extra_repos` (installed even in bare mode).
+- **wallets** – set `wallets: [monero]` to install the Monero CLI.
+- **services** – set `services: [...]` from `ipsec`, `shadowsocks`, `proxy`,
+  `wireguard`, `ssh-pivot`. Each prints its client connection details at the end
+  of the run.
+
+## Examples
+
+Bare Hetzner box with a WireGuard tunnel and a SOCKS5 proxy:
+
+```bash
+export HCLOUD_TOKEN=xxx
+ansible-playbook site.yml \
+  -e target=hetzner -e bare=true \
+  -e '{"services": ["wireguard", "proxy"]}'
+```
+
+Full Kali toolset on AWS (Ubuntu's default login user is `ubuntu`, so escalate
+via sudo):
+
+```bash
+ansible-playbook site.yml -e target=aws -e ssh_user=ubuntu \
+  -e '{"extra_tools": ["nikto"], "wallets": ["monero"]}'
+```
+
+## Configuration
+
+All knobs live in `inventory/group_vars/all.yml` and can be overridden with `-e`
+(or `-e @vars.yml`). Highlights:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `target` | `digitalocean` | which provider/path to use |
+| `instance_name` | `investig` | instance name / inventory label |
+| `ssh_user` | `root` | login user (use `ubuntu` for AWS, a non-root user for GCP) |
+| `ssh_private_key_file` | `~/.ssh/id_rsa` | key used to reach the host |
+| `create_ssh_key` | `false` | generate an RSA 4096 keypair if missing |
+| `bare` | `false` | skip the standard pentest toolset |
+| `install_kali` | `true` | add the Kali repo (required for the standard tools) |
+| `extra_tools` / `extra_repos` | `[]` | extra apt packages / GitHub `owner/name` repos |
+| `wallets` | `[]` | e.g. `[monero]` |
+| `services` | `[]` | any of `ipsec shadowsocks proxy wireguard ssh-pivot` |
+
+Per-provider region/size/image defaults (Ubuntu 22.04, ~2 GB) are grouped at the
+bottom of `all.yml` — e.g. `do_region`, `hcloud_server_type`, `aws_instance_type`.
+
+## Provider notes
+
+- **GCP / AWS** block root SSH on their Ubuntu images. Set `ssh_user` to a
+  non-root user (`ubuntu` on AWS); the configure play uses `become` to escalate.
+  GCP expects a default network to exist in the project (it does by default).
+- **AWS** auth uses the standard boto3 chain (env vars / `~/.aws` / profile) by
+  default; set `aws_access_key` / `aws_secret_key` to pass keys explicitly. The
+  default security group must allow inbound SSH (and the service ports you open).
+- **Sporestack** prepays with cryptocurrency, which **cannot be automated**.
+  Create and fund a token out of band (e.g. the `sporestack` CLI), then pass it
+  as `SPORESTACK_TOKEN`. The launch returns a `machine_id`; pass it back as
+  `-e sporestack_machine_id=...` to `destroy.yml`.
+
+## Layout
+
+```
+site.yml            # provision + configure
+provision.yml       # create/destroy the instance, register it for configuration
+configure.yml       # apply the roles to the investigator group
+destroy.yml         # tear the instance down
+inventory/          # static inventory + group_vars/all.yml (all defaults)
+roles/provision/    # one task file per provider, dispatched by `target`
+roles/{common,docker,kali,tools,wallets,services}/   # configuration roles
+```

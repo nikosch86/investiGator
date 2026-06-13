@@ -1,0 +1,10 @@
+[Interface]
+Address = 10.66.66.1/24,fd42:42:42::1/64
+ListenPort = {{ wireguard_port }}
+PrivateKey = {{ wg_server_priv.stdout }}
+PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o {{ ansible_default_ipv4.interface }} -j MASQUERADE; ip6tables -t nat -A POSTROUTING -o {{ ansible_default_ipv4.interface }} -j MASQUERADE
+PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o {{ ansible_default_ipv4.interface }} -j MASQUERADE; ip6tables -t nat -D POSTROUTING -o {{ ansible_default_ipv4.interface }} -j MASQUERADE
+
+[Peer]
+PublicKey = {{ wg_client_pub.stdout }}
+AllowedIPs = 10.66.66.2/32,fd42:42:42::2/128

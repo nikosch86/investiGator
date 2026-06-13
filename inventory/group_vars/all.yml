@@ -1,0 +1,146 @@
+---
+# =============================================================================
+# investiGator — global configuration
+#
+# Override any of these on the command line with -e, e.g.
+#   ansible-playbook site.yml -e target=hetzner -e instance_name=recon
+# or in a vars file:  ansible-playbook site.yml -e @myvars.yml
+# =============================================================================
+
+# --- What to provision -------------------------------------------------------
+# One of: digitalocean, gcloud, aws, hetzner, vultr, linode, sporestack, manual
+target: digitalocean
+supported_targets:
+  - digitalocean
+  - gcloud
+  - aws
+  - hetzner
+  - vultr
+  - linode
+  - sporestack
+  - manual
+
+# present = create + configure ; absent = destroy (used by destroy.yml)
+provision_state: present
+
+instance_name: investig
+
+# For target=manual: the IP/host of an existing machine to configure.
+# Leave empty to instead target hosts listed in the static inventory.
+instance_ip: ""
+
+# --- SSH access --------------------------------------------------------------
+ssh_user: root
+ssh_port: 22
+ssh_private_key_file: "{{ lookup('ansible.builtin.env', 'HOME') }}/.ssh/id_rsa"
+ssh_public_key_file: "{{ ssh_private_key_file }}.pub"
+ssh_public_key: "{{ lookup('ansible.builtin.file', ssh_public_key_file) }}"
+ssh_key_name: investigator
+# Set true to generate the keypair (RSA 4096) if it does not exist yet.
+create_ssh_key: false
+
+# --- What to install on the host ---------------------------------------------
+# bare:         only base system + docker (skip the pentest toolset)
+# install_kali: add the Kali rolling repo so the pentest tools are available.
+#               (the standard toolset below is only installed when kali is on)
+bare: false
+install_kali: true
+
+standard_tools:
+  - nmap
+  - git
+  - wpscan
+  - exploitdb
+  - hashcat
+  - hydra
+  - gobuster
+  - crunch
+  - lynx
+  - seclists
+  - wordlists
+  - dirb
+  - wfuzz
+standard_repos:
+  - magnumripper/JohnTheRipper
+  - erwanlr/Fingerprinter
+  - laramies/theHarvester
+
+# Extra apt packages and GitHub repos (owner/name) installed regardless of bare.
+extra_tools: []
+extra_repos: []
+
+# Wallets to install. Supported: monero
+wallets: []
+
+# Services to install. Supported: ipsec, shadowsocks, proxy, wireguard, ssh-pivot
+services: []
+
+# =============================================================================
+# Provider credentials — read from the environment by default.
+# =============================================================================
+do_api_token: "{{ lookup('ansible.builtin.env', 'DIGITALOCEAN_API_KEY') }}"
+hcloud_token: "{{ lookup('ansible.builtin.env', 'HCLOUD_TOKEN') }}"
+vultr_api_key: "{{ lookup('ansible.builtin.env', 'VULTR_API_KEY') }}"
+linode_access_token: "{{ lookup('ansible.builtin.env', 'LINODE_ACCESS_TOKEN') }}"
+sporestack_token: "{{ lookup('ansible.builtin.env', 'SPORESTACK_TOKEN') }}"
+
+# AWS: leave empty to use the standard boto3 chain (env vars / ~/.aws / profile)
+aws_access_key: ""
+aws_secret_key: ""
+
+# GCP: service-account auth
+gcp_project: "{{ lookup('ansible.builtin.env', 'GCP_PROJECT') }}"
+gcp_auth_kind: serviceaccount
+gcp_service_account_file: "{{ lookup('ansible.builtin.env', 'GCP_SERVICE_ACCOUNT_FILE') }}"
+
+# =============================================================================
+# Per-provider instance defaults (Ubuntu 22.04, ~2 GB).
+# =============================================================================
+
+# DigitalOcean
+do_region: fra1
+do_size: s-1vcpu-2gb
+do_image: ubuntu-22-04-x64
+
+# Google Cloud
+gcp_zone: us-central1-a
+gcp_machine_type: e2-small
+gcp_image: projects/ubuntu-os-cloud/global/images/family/ubuntu-2204-lts
+gcp_network: global/networks/default
+gcp_disk_size_gb: 20
+
+# AWS (set aws_image_id to skip the AMI lookup)
+aws_region: us-east-1
+aws_instance_type: t3.small
+aws_security_group: default
+aws_image_id: ""
+aws_image_name_filter: "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+
+# Hetzner Cloud
+hcloud_location: nbg1
+hcloud_server_type: cx22
+hcloud_image: ubuntu-22.04
+
+# Vultr
+vultr_region: fra
+vultr_plan: vc2-1c-2gb
+vultr_os: "Ubuntu 22.04 LTS x64"
+
+# Linode
+linode_region: eu-central
+linode_type: g6-standard-1
+linode_image: linode/ubuntu22.04
+
+# Sporestack (REQUIRES a pre-funded token — crypto payment cannot be automated)
+sporestack_api: "https://api.sporestack.com"
+sporestack_provider: digitalocean
+sporestack_flavor: vps-1vcpu-2gb
+sporestack_os: ubuntu-22-04
+sporestack_region: ""
+sporestack_days: 28
+# For destroy.yml on sporestack, supply the machine id returned at launch:
+sporestack_machine_id: ""
+
+# --- WireGuard tunables (used only when 'wireguard' in services) -------------
+wireguard_port: 51820
+wireguard_dns: "1.1.1.1,8.8.8.8"

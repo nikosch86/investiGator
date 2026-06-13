@@ -1,0 +1,21 @@
+---
+- name: Proxy |generate credentials
+  ansible.builtin.set_fact:
+    proxy_user: "{{ proxy_user | default('user', true) }}"
+    proxy_password: "{{ proxy_password | default(lookup('community.general.random_string', length=16, special=false), true) }}"
+
+- name: Proxy |run the SOCKS5 proxy container
+  community.docker.docker_container:
+    name: socks5-proxy
+    image: serjs/go-socks5-proxy
+    state: started
+    restart_policy: unless-stopped
+    env:
+      PROXY_USER: "{{ proxy_user }}"
+      PROXY_PASSWORD: "{{ proxy_password }}"
+    ports:
+      - "1080:1080"
+
+- name: Proxy |proxychains config line
+  ansible.builtin.debug:
+    msg: "socks5 {{ ansible_host | default(inventory_hostname) }} 1080 {{ proxy_user }} {{ proxy_password }}"

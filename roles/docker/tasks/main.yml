@@ -1,0 +1,43 @@
+---
+- name: Create the apt keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add the Docker apt signing key
+  ansible.builtin.get_url:
+    url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+
+- name: Add the Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch={{ docker_apt_arch }} signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/{{ ansible_distribution | lower }}
+      {{ ansible_distribution_release }} stable
+    filename: docker
+    state: present
+
+- name: Install Docker Engine, CLI and the Compose plugin
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+
+- name: Install the Docker SDK for Python (used by community.docker modules)
+  ansible.builtin.apt:
+    name: python3-docker
+    state: present
+
+- name: Ensure Docker is running and enabled
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true

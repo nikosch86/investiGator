@@ -1,0 +1,63 @@
+---
+# The standard pentest toolset comes from the Kali repo, so it is only installed
+# when the box is not "bare" and Kali was bootstrapped. Extra tools/repos
+# requested by the user are always installed.
+- name: Set whether to install the standard toolset
+  ansible.builtin.set_fact:
+    install_standard: "{{ (not (bare | bool)) and (install_kali | bool) }}"
+
+- name: Install build dependencies for the standard toolset
+  ansible.builtin.apt:
+    name:
+      - zlib1g-dev
+      - ruby-dev
+      - python3-pip
+    state: present
+    update_cache: true
+  when: install_standard | bool
+
+- name: Install the standard pentest tools
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ standard_tools }}"
+  register: std_tool_install
+  failed_when: false
+  when: install_standard | bool
+
+- name: Collect standard tools that failed to install
+  ansible.builtin.set_fact:
+    std_tools_failed: "{{ std_tool_install.results | default([]) | selectattr('failed', 'defined') | selectattr('failed') | map(attribute='item') | list }}"
+  when: install_standard | bool
+
+- name: Report standard tools that could not be installed
+  ansible.builtin.debug:
+    msg: "Could not install: {{ std_tools_failed }}"
+  when:
+    - install_standard | bool
+    - std_tools_failed | default([]) | length > 0
+
+- name: Clone the standard repositories
+  ansible.builtin.git:
+    repo: "https://github.com/{{ item }}.git"
+    dest: "/opt/{{ item.split('/')[1] }}"
+    version: HEAD
+    depth: 1
+  loop: "{{ standard_repos }}"
+  when: install_standard | bool
+
+- name: Install extra tools
+  ansible.builtin.apt:
+    name: "{{ extra_tools }}"
+    state: present
+    update_cache: true
+  when: extra_tools | length > 0
+
+- name: Clone extra repositories
+  ansible.builtin.git:
+    repo: "https://github.com/{{ item }}.git"
+    dest: "/opt/{{ item.split('/')[1] }}"
+    version: HEAD
+    depth: 1
+  loop: "{{ extra_repos }}"
+  when: extra_repos | length > 0

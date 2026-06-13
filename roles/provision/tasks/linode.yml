@@ -1,0 +1,31 @@
+---
+- name: Linode | ensure access token is set
+  ansible.builtin.assert:
+    that: linode_access_token | length > 0
+    fail_msg: "Set LINODE_ACCESS_TOKEN or -e linode_access_token=..."
+    quiet: true
+
+- name: Linode | create instance
+  community.general.linode_v4:
+    access_token: "{{ linode_access_token }}"
+    label: "{{ instance_name }}"
+    region: "{{ linode_region }}"
+    type: "{{ linode_type }}"
+    image: "{{ linode_image }}"
+    authorized_keys:
+      - "{{ ssh_public_key }}"
+    state: present
+  register: linode_inst
+  when: provision_state == 'present'
+
+- name: Linode | record instance IP
+  ansible.builtin.set_fact:
+    provisioned_ip: "{{ linode_inst.instance.ipv4[0] }}"
+  when: provision_state == 'present'
+
+- name: Linode | destroy instance
+  community.general.linode_v4:
+    access_token: "{{ linode_access_token }}"
+    label: "{{ instance_name }}"
+    state: absent
+  when: provision_state == 'absent'

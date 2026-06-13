@@ -1,0 +1,63 @@
+---
+- name: AWS | find latest Ubuntu AMI
+  amazon.aws.ec2_ami_info:
+    region: "{{ aws_region }}"
+    access_key: "{{ aws_access_key | default(omit, true) }}"
+    secret_key: "{{ aws_secret_key | default(omit, true) }}"
+    owners: "099720109477"
+    filters:
+      name: "{{ aws_image_name_filter }}"
+      state: available
+  register: aws_amis
+  when:
+    - provision_state == 'present'
+    - aws_image_id | length == 0
+
+- name: AWS | resolve AMI id
+  ansible.builtin.set_fact:
+    resolved_ami: "{{ aws_image_id if aws_image_id | length > 0 else (aws_amis.images | sort(attribute='creation_date') | last).image_id }}"
+  when: provision_state == 'present'
+
+- name: AWS | import SSH key
+  amazon.aws.ec2_key:
+    region: "{{ aws_region }}"
+    access_key: "{{ aws_access_key | default(omit, true) }}"
+    secret_key: "{{ aws_secret_key | default(omit, true) }}"
+    name: "{{ ssh_key_name }}"
+    key_material: "{{ ssh_public_key }}"
+    state: present
+  when: provision_state == 'present'
+
+- name: AWS | launch instance
+  amazon.aws.ec2_instance:
+    region: "{{ aws_region }}"
+    access_key: "{{ aws_access_key | default(omit, true) }}"
+    secret_key: "{{ aws_secret_key | default(omit, true) }}"
+    name: "{{ instance_name }}"
+    instance_type: "{{ aws_instance_type }}"
+    image_id: "{{ resolved_ami }}"
+    key_name: "{{ ssh_key_name }}"
+    security_group: "{{ aws_security_group }}"
+    network_interfaces:
+      - assign_public_ip: true
+    wait: true
+    state: running
+  register: aws_ec2
+  when: provision_state == 'present'
+
+- name: AWS | record instance IP
+  ansible.builtin.set_fact:
+    provisioned_ip: "{{ aws_ec2.instances[0].public_ip_address }}"
+  when: provision_state == 'present'
+
+- name: AWS | terminate instance
+  amazon.aws.ec2_instance:
+    region: "{{ aws_region }}"
+    access_key: "{{ aws_access_key | default(omit, true) }}"
+    secret_key: "{{ aws_secret_key | default(omit, true) }}"
+    filters:
+      "tag:Name": "{{ instance_name }}"
+      instance-state-name: ["pending", "running", "stopping", "stopped"]
+    state: absent
+    wait: true
+  when: provision_state == 'absent'

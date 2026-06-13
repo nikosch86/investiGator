@@ -1,0 +1,32 @@
+---
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - locales
+      - curl
+      - ca-certificates
+      - gnupg
+      - dirmngr
+      - software-properties-common
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  register: common_apt
+  retries: 3
+  delay: 5
+  until: common_apt is succeeded
+
+- name: Generate the en_US.UTF-8 locale
+  community.general.locale_gen:
+    name: en_US.UTF-8
+    state: present
+
+- name: Set the default system locale
+  ansible.builtin.copy:
+    dest: /etc/default/locale
+    content: |
+      LANG=en_US.UTF-8
+      LC_ALL=en_US.UTF-8
+    owner: root
+    group: root
+    mode: "0644"

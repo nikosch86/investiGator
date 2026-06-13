@@ -1,0 +1,13 @@
+---
+# Destroy the provisioned instance.
+#   ansible-playbook destroy.yml -e target=hetzner -e instance_name=recon
+- name: Destroy instance
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    provision_state: absent
+  tasks:
+    - name: Tear down via the selected provider
+      ansible.builtin.include_role:
+        name: provision

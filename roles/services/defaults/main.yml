@@ -1,0 +1,7 @@
+---
+services_supported:
+  - ipsec
+  - shadowsocks
+  - proxy
+  - wireguard
+  - ssh-pivot

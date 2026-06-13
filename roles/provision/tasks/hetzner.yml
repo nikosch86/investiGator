@@ -1,0 +1,39 @@
+---
+- name: Hetzner | ensure API token is set
+  ansible.builtin.assert:
+    that: hcloud_token | length > 0
+    fail_msg: "Set HCLOUD_TOKEN or -e hcloud_token=..."
+    quiet: true
+
+- name: Hetzner | register SSH key
+  hetzner.hcloud.ssh_key:
+    api_token: "{{ hcloud_token }}"
+    name: "{{ ssh_key_name }}"
+    public_key: "{{ ssh_public_key }}"
+    state: present
+  when: provision_state == 'present'
+
+- name: Hetzner | create server
+  hetzner.hcloud.server:
+    api_token: "{{ hcloud_token }}"
+    name: "{{ instance_name }}"
+    server_type: "{{ hcloud_server_type }}"
+    location: "{{ hcloud_location }}"
+    image: "{{ hcloud_image }}"
+    ssh_keys:
+      - "{{ ssh_key_name }}"
+    state: present
+  register: hcloud_srv
+  when: provision_state == 'present'
+
+- name: Hetzner | record instance IP
+  ansible.builtin.set_fact:
+    provisioned_ip: "{{ hcloud_srv.hcloud_server.ipv4_address }}"
+  when: provision_state == 'present'
+
+- name: Hetzner | destroy server
+  hetzner.hcloud.server:
+    api_token: "{{ hcloud_token }}"
+    name: "{{ instance_name }}"
+    state: absent
+  when: provision_state == 'absent'
